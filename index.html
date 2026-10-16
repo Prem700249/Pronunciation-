@@ -151,12 +151,12 @@ const $=s=>document.querySelector(s);
 let stars=0,voice=null,tok=0,level=2,page=0,done=new Set(),heard=new Set(),free=[];
 const color=c=>V.includes(c)?'#ff5a5f':`hsl(${(L.indexOf(c)*47)%360 + 170},62%,42%)`;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function pickVoice(){const v=speechSynthesis.getVoices();voice=v.find(x=>x.lang.replace('_','-')==='en-GB')||v.find(x=>x.lang.startsWith('en'))||null;const vi=document.getElementById('voiceInfo');if(vi)vi.textContent=voice?'Voice in use: '+voice.name+' ('+voice.lang+')':'No English voice found'}
+function pickVoice(){const v=speechSynthesis.getVoices();const lg=x=>x.lang.replace('_','-');voice=v.find(x=>lg(x)==='en-IN')||v.find(x=>lg(x)==='en-GB')||v.find(x=>lg(x)==='en-US')||v.find(x=>x.lang.startsWith('en'))||null;const vi=document.getElementById('voiceInfo');if(vi)vi.textContent=voice?'Voice in use: '+voice.name+' ('+voice.lang+')':'No English voice found'}
 if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
 function say(t,rate){return new Promise(res=>{
   $('#bubble').textContent=t;document.body.classList.add('talk');
   if(!('speechSynthesis' in window)){setTimeout(()=>{document.body.classList.remove('talk');res()},500);return}
-  const u=new SpeechSynthesisUtterance(t);u.lang='en-GB';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
+  const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
   u.onend=f;u.onerror=f;setTimeout(f,3500);speechSynthesis.speak(u)})}
 function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
@@ -350,7 +350,7 @@ async function blend(word,hl,chunk){
   const p=recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
   stop();const me=tok;await sleep(80);
   for(const g of p.groups){if(me!==tok)return false;hl&&hl(g.idx);await playSeq(g.letters,gapMs);await sleep(350)}
-  if(me!==tok)return false;hl&&hl(-2);await sleep(150);await playSeq(p.all,gapMs);hl&&hl(-1);return me===tok}
+  if(me!==tok)return false;await sleep(250);if(me!==tok)return false;hl&&hl(-2);await say(word,.7);hl&&hl(-1);return me===tok}
 // ---- load saved sounds ----
 async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
   for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
