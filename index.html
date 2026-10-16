@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Friends - English Reading</title>
+<style>
+:root{--ink:#2a2150;--bg:#eef3ff;--card:#fff;--vowel:#ff5a5f;--gold:#ffb703;--line:#cfd8ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-bottom:4px solid var(--line);position:sticky;top:0;z-index:5}
+#mascot{width:84px;height:84px;flex:none}
+#bubble{background:#fff4c9;border:3px solid var(--gold);border-radius:18px;padding:6px 14px;font-size:1.4rem;font-weight:800;min-width:90px;text-align:center}
+.hd{flex:1;min-width:0}
+#stars{font-size:1.5rem;font-weight:800;white-space:nowrap}
+nav{display:flex;gap:8px;padding:10px 14px;max-width:1000px;margin:auto}
+nav button{flex:1;font:inherit;font-size:1.15rem;font-weight:800;padding:14px 6px;border-radius:16px;border:4px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+nav button.on{background:var(--ink);color:#fff}
+main{max-width:1000px;margin:auto;padding:0 14px 40px}
+section{display:none}section.on{display:block}
+h2{margin:6px 0 4px;font-size:1.4rem}
+p.hint{margin:0 0 12px;opacity:.75}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:10px}
+.tile{font:inherit;font-size:2.2rem;font-weight:800;color:#fff;border:0;border-radius:20px;padding:12px 0;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.25);touch-action:none;user-select:none;position:relative}
+.tile:active,.tile.hit{transform:translateY(5px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.tile small{font-size:1.4rem;opacity:.85;margin-left:2px}
+.tile.ghost{position:fixed;pointer-events:none;z-index:99;width:74px;opacity:.9;transform:scale(1.2) rotate(-6deg)}
+.levels{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.levels button{font:inherit;font-weight:800;font-size:1.05rem;padding:10px 16px;border-radius:14px;border:3px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.levels button.on{background:#7b5cff;color:#fff;border-color:#7b5cff}
+.bar{height:22px;background:#fff;border:3px solid var(--ink);border-radius:14px;overflow:hidden;margin-bottom:6px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ddc97,#ffb703);transition:width .5s}
+#barTxt{font-weight:800;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:8px;background:#fff;border:3px solid var(--ink);border-radius:16px;padding:8px}.row b{font-size:1.8rem;width:30px;text-align:center}.row input{font:inherit;font-size:1.2rem;width:100%;min-width:0;padding:6px;border:2px solid var(--line);border-radius:10px}.row button{font:inherit;font-size:1.2rem;border:0;border-radius:10px;background:#3ddc97;padding:8px 12px;cursor:pointer}
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.word{font:inherit;background:#fff;border:4px solid var(--ink);border-radius:22px;padding:18px 8px;font-size:2.6rem;font-weight:800;cursor:pointer;box-shadow:0 6px 0 var(--ink);color:var(--ink);position:relative}
+.word:active{transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.word.done::after{content:"⭐";position:absolute;top:-12px;right:-6px;font-size:1.6rem}
+.word span{display:inline-block;transition:transform .15s,color .15s;padding:0 1px}
+.word span.on{color:#ff5a5f;transform:scale(1.35)}
+.word.all span{color:#12a37f}
+#line{min-height:120px;background:#fff;border:5px dashed #7b5cff;border-radius:24px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:12px;margin-bottom:12px}
+#line.over{background:#f1ecff}
+#line .ph{opacity:.5;font-size:1.2rem}
+#line .l{font-size:3.6rem;font-weight:800;padding:0 4px;margin:0 -2px;border-radius:14px}
+#line.joined .l{background:#ffe8a3;margin:0}
+#line .l.pop{animation:pop .45s}
+@keyframes pop{0%{transform:scale(.3)}60%{transform:scale(1.5) rotate(-6deg)}100%{transform:scale(1)}}
+.acts{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.acts button{font:inherit;font-weight:800;font-size:1.1rem;padding:12px 20px;border-radius:16px;border:4px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer}
+.acts .go{background:#3ddc97}
+.fly{position:fixed;font-size:2.4rem;z-index:100;pointer-events:none;animation:fly .9s ease-out forwards}
+@keyframes fly{to{transform:translateY(-90px) scale(1.6);opacity:0}}
+.spark{position:fixed;width:12px;height:12px;border-radius:50%;z-index:100;pointer-events:none;animation:sp .5s ease-out forwards}
+@keyframes sp{to{transform:translate(var(--x),var(--y)) scale(0);opacity:0}}
+#mouth{transform-box:fill-box;transform-origin:center}
+.talk #mouth{animation:yap .22s infinite alternate}
+@keyframes yap{from{transform:scaleY(.4)}to{transform:scaleY(1.5)}}
+.talk #mascot{animation:bob .5s infinite alternate}
+@keyframes bob{to{transform:translateY(-5px) rotate(3deg)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+button:disabled{opacity:.35;cursor:default}
+button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <svg id="mascot" viewBox="0 0 100 100" aria-label="Mascot">
+    <circle cx="50" cy="52" r="40" fill="#ffd23f" stroke="#2a2150" stroke-width="4"/>
+    <circle cx="22" cy="22" r="10" fill="#ffd23f" stroke="#2a2150" stroke-width="4"/>
+    <circle cx="78" cy="22" r="10" fill="#ffd23f" stroke="#2a2150" stroke-width="4"/>
+    <circle cx="36" cy="44" r="7" fill="#fff" stroke="#2a2150" stroke-width="3"/><circle cx="64" cy="44" r="7" fill="#fff" stroke="#2a2150" stroke-width="3"/>
+    <circle cx="37" cy="45" r="3" fill="#2a2150"/><circle cx="63" cy="45" r="3" fill="#2a2150"/>
+    <circle cx="26" cy="62" r="5" fill="#ff9aa2"/><circle cx="74" cy="62" r="5" fill="#ff9aa2"/>
+    <ellipse id="mouth" cx="50" cy="68" rx="11" ry="8" fill="#a3262a" stroke="#2a2150" stroke-width="3"/>
+  </svg>
+  <div class="hd"><div id="bubble">Hi!</div></div>
+  <div id="stars">⭐ 0</div>
+</header>
+<nav>
+  <button data-t="s1" class="on">1. Letters</button>
+  <button data-t="s2">2. Blend</button>
+  <button data-t="s3">3. Build</button>
+  <button data-t="s4">⚙ Tune</button>
+</nav>
+<main>
+  <section id="s1" class="on">
+    <h2>Tap a letter, hear its sound</h2>
+    <p class="hint">Red letters are vowels. First tap on a new letter gives a star.</p>
+    <div class="grid" id="alpha"></div>
+  </section>
+  <section id="s2">
+    <h2>Tap a word, listen and blend</h2>
+    <div class="levels" id="levels"></div>
+    <div class="bar"><i id="fill"></i></div>
+    <div id="barTxt"></div>
+    <div class="acts" style="align-items:center"><button class="go" id="autoBtn">▶ Play all</button><label style="font-weight:800;font-size:1.05rem"><input type="checkbox" id="autoNext" checked style="width:22px;height:22px;vertical-align:middle"> Go to next page automatically</label></div>
+    <div class="words" id="words"></div>
+    <div class="acts" id="pager" style="justify-content:center;align-items:center;margin-top:18px"><button id="prev">⬅ Back</button><b id="pg"></b><button id="next">Next ➡</button></div>
+  </section>
+  <section id="s3">
+    <h2>Drag letters into the box</h2>
+    <p class="hint">Put 2 or more letters together and the blended sound plays.</p>
+    <div id="line"><span class="ph">Drop letters here</span></div>
+    <div class="acts"><button class="go" id="play">🔊 Say it</button><button id="undo">⌫ Back</button><button id="clear">✖ Clear</button></div>
+    <div class="grid" id="tray"></div>
+  </section>
+  <section id="s4">
+    <h2>Tune the sounds (teacher)</h2>
+    <p class="hint" id="voiceInfo"></p>
+    <p class="hint">Press ▶ to listen. If a sound is wrong, type another spelling (e.g. <b>fuh</b>, <b>ff</b>, <b>fur</b>) and press ▶ again. Changes are saved on this computer.</p>
+    <div class="acts"><button id="resetSnd">Reset all</button></div>
+    <div id="tune" class="words"></div>
+    <h2 style="margin-top:22px">Blend starts (str, tr, bl ...)</h2>
+    <p class="hint">Used in levels 4 and 5, where the start (like <b>str</b>) is said together, then the ending (like <b>ap</b>), then the whole word.</p>
+    <div id="tuneO" class="words"></div>
+  </section>
+</main>
+<script>
+// ---- Edit these if a sound seems wrong on your computer's voice ----
+const DEF={a:'ae',b:'ba',c:'ka',d:'da',e:'ee',f:'fa',g:'ga',h:'ha',i:'ee',j:'ja',k:'ka',l:'la',m:'ma',n:'na',o:'or',p:'pa',q:'qu',r:'ra',s:'sa',t:'ta',u:'uh',v:'va',w:'wa',x:'xa',y:'ya',z:'zee'};
+const SOUNDS=Object.assign({},DEF);
+try{Object.assign(SOUNDS,JSON.parse(localStorage.getItem('snd')||'{}'))}catch(e){}
+const PG3=[['bat','cat','mat','fat','hat','rat','sat','ban','can','man','fan','pan','ran','van','dam','ram','ham','jam'],['bad','dad','fad','had','lad','cap','gap','map','rap','sap','tap','bag','gag','rag','tag','wag'],['bin','fin','pin','tin','big','dig','fig','jig','bid','hid','did','kid','lid','rid','bib','fib','nib','rib','bit','fit','kit','lit','pit','sit'],['god','nod','pod','cod','rod','dog','fog','hog','cot','dot','got','hot','lot','pot','not','rot','job','box'],['cub','dub','rub','tub','hub','bug','dug','hug','rug','sun','fun','gun','run','but','cut','hut','nut','mud','bud','pup'],['fed','bed','led','red','wed','den','hen','men','pen','ten','beg','keg','leg','peg','get','pet','let','wet'],['nag','lug'],['zen','sam','sim'],['hop','dim','rig'],['sob','fax','put'],['sip','him'],['pig','top'],['nap'],['pat','yam','six','wax'],['kin']];
+const PG4=[['strap','strip','strut','strum'],['sprig','sprat'],['scrap','scrub','scram'],['splat','split'],['shrub','shrug','shred'],['throb','thrum'],['squid','squat','squab'],['ship','shop','shot','shut','shun','shag','shed','shin'],['chip','chop','chat','chin','chum','chug','chub'],['thin','that','this','then','than','them','thud','thug'],['whip','when','whim','whiz','whop'],['duck','lock','kick','sock','back','neck','pick','rock','buck'],['stop','step','stab','stem','stun'],['blob','bled','blot','blip'],['clap','clip','clop','club','clan'],['flap','flip','flop','flat','fled'],['grab','grid','grin','grip','grub'],['trap','trip','trot','trek','trim'],['snap','snip','snug','snag','snub'],['plan','plot','plum','plus','plod'],['ball','bell','bill','bull','call','fall','fill','full','hall','hill','kill','pull','roll','sell','tell','well','will','yell'],['mess','miss','moss','pass','boss','kiss'],['puff','cuff','muff','huff','buff'],['buzz','fizz','fuzz'],['cart','farm','hard','park','part','star'],['fork','corn','sort','torn','port'],['her','bird','turn','burn','hurt'],['rain','wait','mail','tail','main'],['boat','coat','goat','road','load'],['meat','read','heat','team'],['tree','keep','feel','deep'],['jump','nest','milk','frog','lamp','sand','drum','stamp','crisp','plant','blast','drift','stand']],RULE4=['Rule str-','Rule spr-','Rule scr-','Rule spl-','Rule shr-','Rule thr-','Rule squ-','Rule sh-','Rule ch-','Rule th-','Rule wh-','Rule -ck','Rule st-','Rule bl-','Rule cl-','Rule fl-','Rule gr-','Rule tr-','Rule sn-','Rule pl-','Rule -ll','Rule -ss','Rule -ff','Rule -zz','Rule ar','Rule or','Rule er/ir/ur','Rule ai','Rule oa','Rule ea','Rule ee','Extra practice'];
+const LEVELS={2:['am','an','as','at','be','he','me','we','in','if','is','it','of','on','or','ox','no','go','so','lo','to','do','up','us','by','my','ab','ad','ag','ah','al','ar','aw','ax','ay','eh','el','em','en','er','es','ex','id','ob','od','oh','op','ow','uh','um','un','ut','ba','bi','bo','da','di','fa','fe','ga','gi','ha','hi','ho','ja','jo','ka','ki','la','li','ma','mi','mo','mu','na','ne','nu','pa','pe','pi','po','re','sh','si','ta','te','ti','wo','ya','ye','yo','yu','za','zo','de','bu','du','fo','ku','lu'],3:['bat','cat','mat','fat','hat','rat','sat','ban','can','man','fan','pan','ran','van','dam','ram','ham','jam','bad','dad','fad','had','lad','cap','gap','map','rap','sap','tap','bag','gag','rag','tag','wag','bin','fin','pin','tin','big','dig','fig','jig','bid','hid','did','kid','lid','rid','bib','fib','nib','rib','bit','fit','kit','lit','pit','sit','god','nod','pod','cod','rod','dog','fog','hog','cot','dot','got','hot','lot','pot','not','rot','job','box','cub','dub','rub','tub','hub','bug','dug','hug','rug','sun','fun','gun','run','but','cut','hut','nut','mud','bud','pup','fed','bed','led','red','wed','den','hen','men','pen','ten','beg','keg','leg','peg','get','pet','let','wet','nag','lug','zen','sam','sim','hop','dim','rig','sob','fax','put','sip','him','pig','top','nap','pat','yam','six','wax','kin'],4:['strap','strip','strut','strum','sprig','sprat','scrap','scrub','scram','splat','split','shrub','shrug','shred','throb','thrum','squid','squat','squab','ship','shop','shot','shut','shun','shag','shed','shin','chip','chop','chat','chin','chum','chug','chub','thin','that','this','then','than','them','thud','thug','whip','when','whim','whiz','whop','duck','lock','kick','sock','back','neck','pick','rock','buck','stop','step','stab','stem','stun','blob','bled','blot','blip','clap','clip','clop','club','clan','flap','flip','flop','flat','fled','grab','grid','grin','grip','grub','trap','trip','trot','trek','trim','snap','snip','snug','snag','snub','plan','plot','plum','plus','plod','ball','bell','bill','bull','call','fall','fill','full','hall','hill','kill','pull','roll','sell','tell','well','will','yell','mess','miss','moss','pass','boss','kiss','puff','cuff','muff','huff','buff','buzz','fizz','fuzz','cart','farm','hard','park','part','star','fork','corn','sort','torn','port','her','bird','turn','burn','hurt','rain','wait','mail','tail','main','boat','coat','goat','road','load','meat','read','heat','team','tree','keep','feel','deep','jump','nest','milk','frog','lamp','sand','drum','stamp','crisp','plant','blast','drift','stand']};
+function pages(l){if(l==3)return PG3;if(l==4)return PG4;const a=LEVELS[l],r=[];for(let i=0;i<a.length;i+=9)r.push(a.slice(i,i+9));return r}
+const UNIT={sh:'shh',ch:'cha',th:'tha',wh:'wa',ck:'ka',ll:'la',ss:'sa',ff:'fa',zz:'za',ar:'ar',or:'or',er:'er',ir:'er',ur:'er',ai:'ay',oa:'oh',ea:'ee',ee:'ee',qu:'kwa'};
+function units(w){const r=[];for(let i=0;i<w.length;){const d=w.substr(i,2);if(UNIT[d]){r.push(d);i+=2}else r.push(w[i++])}return r}
+const snd=u=>u.length>1?UNIT[u]:SOUNDS[u];
+const L='abcdefghijklmnopqrstuvwxyz'.split(''),V='aeiou';
+const $=s=>document.querySelector(s);
+let stars=0,voice=null,tok=0,level=2,page=0,done=new Set(),heard=new Set(),free=[];
+const color=c=>V.includes(c)?'#ff5a5f':`hsl(${(L.indexOf(c)*47)%360 + 170},62%,42%)`;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function pickVoice(){const v=speechSynthesis.getVoices();voice=v.find(x=>x.lang.replace('_','-')==='en-GB')||v.find(x=>x.lang.startsWith('en'))||null;const vi=document.getElementById('voiceInfo');if(vi)vi.textContent=voice?'Voice in use: '+voice.name+' ('+voice.lang+')':'No English voice found'}
+if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
+function say(t,rate){return new Promise(res=>{
+  $('#bubble').textContent=t;document.body.classList.add('talk');
+  if(!('speechSynthesis' in window)){setTimeout(()=>{document.body.classList.remove('talk');res()},500);return}
+  const u=new SpeechSynthesisUtterance(t);u.lang='en-GB';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
+  let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
+  u.onend=f;u.onerror=f;setTimeout(f,3500);speechSynthesis.speak(u)})}
+function stop(){tok++;if('speechSynthesis' in window)speechSynthesis.cancel()}
+const ONS0={str:'stra',spr:'spra',scr:'scra',spl:'spla',shr:'shra',thr:'thra',squ:'skwa',st:'sta',bl:'bla',cl:'cla',fl:'fla',gr:'gra',tr:'tra',sn:'sna',pl:'pla',cr:'cra',dr:'dra',fr:'fra',br:'bra',pr:'pra',gl:'gla',sl:'sla',sm:'sma',sw:'swa',sk:'ska',sp:'spa'};
+const ONSET=Object.assign({},ONS0);
+try{Object.assign(ONSET,JSON.parse(localStorage.getItem('ons')||'{}'))}catch(e){}
+function rimeSay(r){return r.length==2&&!'aeiou'.includes(r[1])?r+r[1]:r}
+function steps(word,chunk){
+  const U=units(word);
+  if(chunk){
+    const vi=U.findIndex(u=>'aeiou'.includes(u[0]));
+    if(vi>=0){
+      const on=U.slice(0,vi),rime=U.slice(vi),out=[];
+      if(on.length==1)out.push({t:snd(on[0]),idx:[0]});
+      else if(on.length>1){const k=on.join('');
+        if(ONSET[k])out.push({t:ONSET[k],idx:on.map((_,x)=>x)});
+        else on.forEach((u,x)=>out.push({t:snd(u),idx:[x]}))}
+      out.push({t:rimeSay(rime.join('')),idx:rime.map((_,x)=>vi+x)});
+      return out}}
+  return U.map((u,x)=>({t:snd(u),idx:[x]}))}
+async function blend(word,hl,chunk){
+  stop();const me=tok;await sleep(60);
+  for(const st of steps(word,chunk)){if(me!==tok)return false;hl&&hl(st.idx);await say(st.t,.55);await sleep(150)}
+  if(me!==tok)return false;hl&&hl(-2);await say(word,.7);hl&&hl(-1);return me===tok}
+function star(n,el){
+  stars+=n;$('#stars').textContent='⭐ '+stars;
+  const r=(el||$('#stars')).getBoundingClientRect(),f=document.createElement('div');
+  f.className='fly';f.textContent='⭐';f.style.left=r.left+r.width/2-14+'px';f.style.top=r.top+'px';
+  document.body.appendChild(f);setTimeout(()=>f.remove(),900)}
+function sparks(el){
+  const r=el.getBoundingClientRect();
+  for(let i=0;i<10;i++){const s=document.createElement('div'),a=i*36*Math.PI/180;
+    s.className='spark';s.style.background=['#ffb703','#ff5a5f','#3ddc97','#7b5cff'][i%4];
+    s.style.left=r.left+r.width/2+'px';s.style.top=r.top+r.height/2+'px';
+    s.style.setProperty('--x',Math.cos(a)*50+'px');s.style.setProperty('--y',Math.sin(a)*50+'px');
+    document.body.appendChild(s);setTimeout(()=>s.remove(),500)}}
+
+// tabs
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  auto++;setAuto(false);stop();document.body.classList.remove('talk');
+  document.querySelectorAll('nav button,section').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('#'+b.dataset.t).classList.add('on')});
+
+// Section 1
+function mkTile(c,withCap){
+  const b=document.createElement('button');b.className='tile';b.style.background=color(c);
+  b.innerHTML=withCap?c.toUpperCase()+'<small>'+c+'</small>':c;b.setAttribute('aria-label','letter '+c);return b}
+L.forEach(c=>{const b=mkTile(c,true);
+  b.onclick=async()=>{b.classList.add('hit');setTimeout(()=>b.classList.remove('hit'),200);
+    if(!heard.has(c)){heard.add(c);star(1,b)}stop();await say(SOUNDS[c],.6)};
+  $('#alpha').appendChild(b)});
+
+// Section 2
+function renderLevels(){
+  $('#levels').innerHTML='';
+  Object.keys(LEVELS).forEach(n=>{const b=document.createElement('button');
+    const all=LEVELS[n].every(w=>done.has(w));
+    b.textContent=(n==4?'4 or more letters':n+' letters')+(all?' ✅':'');if(+n===level)b.className='on';
+    b.onclick=()=>{auto++;setAuto(false);stop();level=+n;page=0;renderLevels();renderWords()};$('#levels').appendChild(b)})}
+function progress(){
+  const w=LEVELS[level],n=w.filter(x=>done.has(x)).length;
+  $('#fill').style.width=n/w.length*100+'%';
+  $('#barTxt').textContent=(level==4?'4 or more letters':level+' letters')+': '+n+' of '+w.length+' words done';}
+function renderWords(){
+  const box=$('#words');box.innerHTML='';
+  pages(level)[page].forEach(w=>{
+    const b=document.createElement('button');b.className='word'+(done.has(w)?' done':'');
+    b.innerHTML=units(w).map(c=>'<span>'+c+'</span>').join('');
+    b.onclick=()=>{auto++;setAuto(false);playBtn(b,w)};
+    box.appendChild(b)});progress();renderPager()}
+async function playBtn(b,w){
+  const sp=b.querySelectorAll('span');
+  document.querySelectorAll('.word').forEach(x=>x.classList.remove('all'));
+  const ok=await blend(w,i=>{sp.forEach((s,k)=>s.classList.toggle('on',Array.isArray(i)&&i.includes(k)));b.classList.toggle('all',i===-2)},level>=4);
+  sp.forEach(s=>s.classList.remove('on'));
+  if(ok&&!done.has(w)){done.add(w);b.classList.add('done');star(2,b);sparks(b);progress();renderLevels();renderPager()}
+  return ok}
+let auto=0;
+function setAuto(on){const a=$('#autoBtn');a.textContent=on?'⏹ Stop':'▶ Play all';a.style.background=on?'#ff5a5f':'#3ddc97';a.style.color=on?'#fff':''}
+async function autoPlay(){
+  const me=++auto;setAuto(true);
+  while(me===auto){
+    for(const b of [...document.querySelectorAll('.word')]){
+      const ok=await playBtn(b,b.textContent);
+      if(!ok||me!==auto){if(me===auto)setAuto(false);return}
+      await sleep(700)}
+    if(!$('#autoNext').checked||page>=pages(level).length-1)break;
+    page++;renderWords();window.scrollTo(0,0);await sleep(900)}
+  if(me===auto)setAuto(false)}
+$('#autoBtn').onclick=()=>{if($('#autoBtn').textContent.startsWith('⏹')){auto++;stop();document.body.classList.remove('talk');setAuto(false)}else autoPlay()};
+function renderPager(){const n=pages(level).length,ok=pages(level)[page].every(x=>done.has(x));
+  $('#pager').style.display=n>1?'flex':'none';$('#pg').textContent='Page '+(page+1)+' of '+n+(ok?' ✅ Page complete!':'');
+  $('#prev').disabled=page===0;$('#next').disabled=page>=n-1;$('#next').style.background=ok&&page<n-1?'#3ddc97':'#fff'}
+function go(d){auto++;setAuto(false);stop();page+=d;renderWords();window.scrollTo(0,0)}
+$('#prev').onclick=()=>go(-1);$('#next').onclick=()=>go(1);
+renderLevels();renderWords();
+
+// Section 3
+const line=$('#line');
+function renderLine(pop){
+  line.innerHTML='';line.classList.toggle('joined',free.length>1);
+  if(!free.length){line.innerHTML='<span class="ph">Drop letters here</span>';return}
+  free.forEach((c,i)=>{const s=document.createElement('span');s.className='l'+(pop&&i===free.length-1?' pop':'');
+    s.textContent=c;s.style.color=color(c);line.appendChild(s)});
+  if(pop)sparks(line.lastChild)}
+function addLetter(c){
+  if(free.length>=8)return;free.push(c);renderLine(true);
+  if(free.length>1){blend(free.join(''));star(1,line)}else{stop();say(SOUNDS[c],.6)}}
+L.forEach(c=>{
+  const b=mkTile(c,false);let ghost=null,sx=0,sy=0,moved=false;
+  const mv=e=>{ghost.style.left=e.clientX-37+'px';ghost.style.top=e.clientY-37+'px';
+    const r=line.getBoundingClientRect();
+    line.classList.toggle('over',e.clientX>r.left&&e.clientX<r.right&&e.clientY>r.top&&e.clientY<r.bottom)};
+  b.onpointerdown=e=>{e.preventDefault();sx=e.clientX;sy=e.clientY;moved=false;
+    ghost=b.cloneNode(true);ghost.classList.add('ghost');document.body.appendChild(ghost);mv(e);b.setPointerCapture(e.pointerId)};
+  b.onpointermove=e=>{if(!ghost)return;if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>8)moved=true;mv(e)};
+  b.onpointerup=e=>{if(!ghost)return;
+    const r=line.getBoundingClientRect(),inside=e.clientX>r.left&&e.clientX<r.right&&e.clientY>r.top&&e.clientY<r.bottom;
+    ghost.remove();ghost=null;line.classList.remove('over');
+    if(inside||!moved)addLetter(c)};
+  b.onpointercancel=()=>{if(ghost){ghost.remove();ghost=null}};
+  $('#tray').appendChild(b)});
+$('#play').onclick=()=>{if(free.length>1)blend(free.join(''));else if(free.length)say(SOUNDS[free[0]],.6)};
+$('#undo').onclick=()=>{stop();free.pop();renderLine(false)};
+$('#clear').onclick=()=>{stop();free=[];renderLine(false)};
+// Tune
+L.forEach(c=>{const r=document.createElement('div');r.className='row';
+  r.innerHTML='<b style="color:'+color(c)+'">'+c+'</b><input value="'+SOUNDS[c]+'" aria-label="sound for '+c+'"><button>▶</button>';
+  const inp=r.querySelector('input');
+  inp.oninput=()=>{SOUNDS[c]=inp.value.trim()||DEF[c];try{localStorage.setItem('snd',JSON.stringify(SOUNDS))}catch(e){}};
+  r.querySelector('button').onclick=()=>{stop();say(SOUNDS[c],.6)};
+  $('#tune').appendChild(r)});
+Object.keys(ONS0).forEach(k=>{const r=document.createElement('div');r.className='row';
+  r.innerHTML='<b style="width:70px;font-size:1.4rem">'+k+'</b><input value="'+ONSET[k]+'" aria-label="start sound '+k+'"><button>▶</button>';
+  const inp=r.querySelector('input');
+  inp.oninput=()=>{ONSET[k]=inp.value.trim()||ONS0[k];try{localStorage.setItem('ons',JSON.stringify(ONSET))}catch(e){}};
+  r.querySelector('button').onclick=()=>{stop();say(ONSET[k],.6)};
+  $('#tuneO').appendChild(r)});
+$('#resetSnd').onclick=()=>{Object.assign(ONSET,ONS0);try{localStorage.removeItem('ons')}catch(e){}
+  document.querySelectorAll('#tuneO input').forEach((x,i)=>x.value=ONS0[Object.keys(ONS0)[i]]);Object.assign(SOUNDS,DEF);try{localStorage.removeItem('snd')}catch(e){}
+  document.querySelectorAll('#tune input').forEach((x,i)=>x.value=DEF[L[i]])};
+if('speechSynthesis' in window)pickVoice();
+</script>
+</body>
+</html>
