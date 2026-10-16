@@ -59,6 +59,14 @@ p.hint{margin:0 0 12px;opacity:.75}
 .talk #mascot{animation:bob .5s infinite alternate}
 @keyframes bob{to{transform:translateY(-5px) rotate(3deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+nav{flex-wrap:wrap}nav button{min-width:96px;font-size:1.05rem}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.rc{background:#fff;border:4px solid var(--line);border-radius:18px;padding:10px;text-align:center}
+.rc.ok{border-color:#12a37f;background:#eafff6}.rc.rec{border-color:#ff5a5f;background:#fff0f0;animation:pulse 1s infinite alternate}
+@keyframes pulse{to{background:#ffd9d9}}
+.rl{font-size:2.6rem;font-weight:800;line-height:1.1}.rl small{font-size:1.5rem}.st{font-size:.9rem;font-weight:700;min-height:22px;margin:4px 0 8px}
+.rb{display:flex;gap:6px}.rb button{flex:1;font:inherit;font-size:1.3rem;min-height:50px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer}
+.rb .big{flex:2.6;font-size:1rem;font-weight:800;background:#ffe27a}
 button:disabled{opacity:.35;cursor:default}
 button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 </style>
@@ -82,6 +90,7 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
   <button data-t="s2">2. Blend</button>
   <button data-t="s3">3. Build</button>
   <button data-t="s4">⚙ Tune</button>
+  <button data-t="s5">🎙 Record</button>
 </nav>
 <main>
   <section id="s1" class="on">
@@ -104,6 +113,15 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <div id="line"><span class="ph">Drop letters here</span></div>
     <div class="acts"><button class="go" id="play">🔊 Say it</button><button id="undo">⌫ Back</button><button id="clear">✖ Clear</button></div>
     <div class="grid" id="tray"></div>
+  </section>
+  <section id="s5">
+    <h2>🎙 Record your own letter sounds</h2>
+    <p class="hint">Tap <b>Record</b>, say the sound (like "buh"), tap <b>Stop</b>. Silence is trimmed and volume is made equal automatically. Recorded sounds are used first; the computer voice is used only for letters not recorded.</p>
+    <div id="recMsg" style="padding:10px 14px;border-radius:14px;font-weight:700;margin-bottom:10px;background:#eef;min-height:44px">Allow the microphone when your browser asks.</div>
+    <div class="acts" style="align-items:center"><b id="recCount" style="font-size:1.2rem"></b><button id="expBtn">⬇ Export all sounds (ZIP)</button><button id="impBtn">⬆ Import sounds (ZIP)</button></div>
+    <div class="acts" style="align-items:center"><label style="font-weight:800">Gap between sounds when blending: <span id="gapTxt"></span><br><input type="range" id="gap" min="0" max="200" step="10" style="width:260px;max-width:80vw"></label><button class="go" id="testBlend">▶ Test blend: s-a-t</button></div>
+    <div class="rgrid" id="rgrid"></div>
+    <input type="file" id="fileIn" accept="audio/*" hidden><input type="file" id="zipIn" accept=".zip,application/zip" hidden>
   </section>
   <section id="s4">
     <h2>Tune the sounds (teacher)</h2>
@@ -141,7 +159,7 @@ function say(t,rate){return new Promise(res=>{
   const u=new SpeechSynthesisUtterance(t);u.lang='en-GB';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
   u.onend=f;u.onerror=f;setTimeout(f,3500);speechSynthesis.speak(u)})}
-function stop(){tok++;if('speechSynthesis' in window)speechSynthesis.cancel()}
+function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
 const ONS0={str:'stra',spr:'spra',scr:'scra',spl:'spla',shr:'shra',thr:'thra',squ:'skwa',st:'sta',bl:'bla',cl:'cla',fl:'fla',gr:'gra',tr:'tra',sn:'sna',pl:'pla',cr:'cra',dr:'dra',fr:'fra',br:'bra',pr:'pra',gl:'gla',sl:'sla',sm:'sma',sw:'swa',sk:'ska',sp:'spa'};
 const ONSET=Object.assign({},ONS0);
 try{Object.assign(ONSET,JSON.parse(localStorage.getItem('ons')||'{}'))}catch(e){}
@@ -159,7 +177,7 @@ function steps(word,chunk){
       out.push({t:rimeSay(rime.join('')),idx:rime.map((_,x)=>vi+x)});
       return out}}
   return U.map((u,x)=>({t:snd(u),idx:[x]}))}
-async function blend(word,hl,chunk){
+async function blendTTS(word,hl,chunk){
   stop();const me=tok;await sleep(60);
   for(const st of steps(word,chunk)){if(me!==tok)return false;hl&&hl(st.idx);await say(st.t,.55);await sleep(150)}
   if(me!==tok)return false;hl&&hl(-2);await say(word,.7);hl&&hl(-1);return me===tok}
@@ -188,7 +206,7 @@ function mkTile(c,withCap){
   b.innerHTML=withCap?c.toUpperCase()+'<small>'+c+'</small>':c;b.setAttribute('aria-label','letter '+c);return b}
 L.forEach(c=>{const b=mkTile(c,true);
   b.onclick=async()=>{b.classList.add('hit');setTimeout(()=>b.classList.remove('hit'),200);
-    if(!heard.has(c)){heard.add(c);star(1,b)}stop();await say(SOUNDS[c],.6)};
+    if(!heard.has(c)){heard.add(c);star(1,b)}stop();await sayLetter(c)};
   $('#alpha').appendChild(b)});
 
 // Section 2
@@ -246,7 +264,7 @@ function renderLine(pop){
   if(pop)sparks(line.lastChild)}
 function addLetter(c){
   if(free.length>=8)return;free.push(c);renderLine(true);
-  if(free.length>1){blend(free.join(''));star(1,line)}else{stop();say(SOUNDS[c],.6)}}
+  if(free.length>1){blend(free.join(''));star(1,line)}else{stop();sayLetter(c)}}
 L.forEach(c=>{
   const b=mkTile(c,false);let ghost=null,sx=0,sy=0,moved=false;
   const mv=e=>{ghost.style.left=e.clientX-37+'px';ghost.style.top=e.clientY-37+'px';
@@ -261,7 +279,7 @@ L.forEach(c=>{
     if(inside||!moved)addLetter(c)};
   b.onpointercancel=()=>{if(ghost){ghost.remove();ghost=null}};
   $('#tray').appendChild(b)});
-$('#play').onclick=()=>{if(free.length>1)blend(free.join(''));else if(free.length)say(SOUNDS[free[0]],.6)};
+$('#play').onclick=()=>{if(free.length>1)blend(free.join(''));else if(free.length)sayLetter(free[0])};
 $('#undo').onclick=()=>{stop();free.pop();renderLine(false)};
 $('#clear').onclick=()=>{stop();free=[];renderLine(false)};
 // Tune
@@ -281,6 +299,146 @@ $('#resetSnd').onclick=()=>{Object.assign(ONSET,ONS0);try{localStorage.removeIte
   document.querySelectorAll('#tuneO input').forEach((x,i)=>x.value=ONS0[Object.keys(ONS0)[i]]);Object.assign(SOUNDS,DEF);try{localStorage.removeItem('snd')}catch(e){}
   document.querySelectorAll('#tune input').forEach((x,i)=>x.value=DEF[L[i]])};
 if('speechSynthesis' in window)pickVoice();
+// ================= Recorded sounds (real voice) =================
+var AC=window.AudioContext||window.webkitAudioContext,ctx=null,bufs={},src={},playing=[],rec=null,gapMs=70,upLetter=null;
+try{gapMs=+(localStorage.getItem('gap')||70)}catch(e){}
+const getCtx=()=>ctx||(ctx=new AC());
+['pointerdown','touchend','click'].forEach(ev=>document.addEventListener(ev,()=>{try{getCtx().resume()}catch(e){}},{passive:true}));
+const decode=ab=>new Promise((res,rej)=>{const p=getCtx().decodeAudioData(ab,res,rej);if(p&&p.catch)p.catch(rej)});
+// ---- IndexedDB ----
+let dbp;
+function idb(){return dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open('phonics-sounds',1);r.onupgradeneeded=()=>r.result.createObjectStore('s',{keyPath:'letter'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}))}
+async function idbDo(mode,fn){const d=await idb();return new Promise((res,rej)=>{const t=d.transaction('s',mode);const r=fn(t.objectStore('s'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error)})}
+const idbAll=()=>idbDo('readonly',s=>s.getAll()),idbPut=(letter,wav)=>idbDo('readwrite',s=>s.put({letter,wav})),idbDel=l=>idbDo('readwrite',s=>s.delete(l));
+// ---- trim + normalise + WAV ----
+function processBuf(b){
+  const n=b.length,ch=b.numberOfChannels,sr=b.sampleRate,x=new Float32Array(n);
+  for(let c=0;c<ch;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)x[i]+=d[i]/ch}
+  let pk=0;for(let i=0;i<n;i++){const a=Math.abs(x[i]);if(a>pk)pk=a}
+  if(pk<0.003)return null;
+  const th=pk*0.06;let s=0,e=n-1;while(s<n&&Math.abs(x[s])<th)s++;while(e>s&&Math.abs(x[e])<th)e--;
+  s=Math.max(0,s-Math.round(sr*.02));e=Math.min(n-1,e+Math.round(sr*.04));
+  let y=x.slice(s,e+1);const mx=Math.round(sr*1.2);if(y.length>mx)y=y.slice(0,mx);
+  let p2=0,sum=0;for(let i=0;i<y.length;i++){const a=Math.abs(y[i]);if(a>p2)p2=a;sum+=y[i]*y[i]}
+  const rms=Math.sqrt(sum/y.length)||1e-6,g=Math.min(.95/p2,.15/rms),fi=Math.round(sr*.008),fo=Math.round(sr*.02);
+  for(let i=0;i<y.length;i++){let k=g;if(i<fi)k*=i/fi;if(y.length-i<fo)k*=(y.length-i)/fo;y[i]*=k}
+  return{data:y,sr}}
+function toWav(y,sr){const n=y.length,ab=new ArrayBuffer(44+n*2),v=new DataView(ab);
+  const w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-1,Math.min(1,y[i]))*32767,true);return ab}
+// ---- playback (Web Audio, exact timing) ----
+function stopAudio(){playing.forEach(s=>{try{s.stop()}catch(e){}});playing=[]}
+function playSeq(letters,gap){
+  const c=getCtx();c.resume();let t=c.currentTime+.04,last=null;const t0=t;
+  letters.forEach(l=>{const s=c.createBufferSource();s.buffer=bufs[l];s.connect(c.destination);s.start(t);t+=s.buffer.duration+gap/1000;playing.push(s);last=s});
+  document.body.classList.add('talk');
+  return new Promise(r=>{const f=()=>{document.body.classList.remove('talk');r()};last.onended=f;setTimeout(f,(t-t0)*1000+400)})}
+async function sayLetter(c){if(bufs[c]){$('#bubble').textContent=c;await playSeq([c],0)}else await say(SOUNDS[c],.6)}
+const UL={ll:['l'],ss:['s'],ff:['f'],zz:['z'],ck:['k'],qu:['k','w']};
+function recPlan(word,chunk){
+  const U=units(word),L2=U.map(u=>u.length==1?[u]:UL[u]);
+  if(L2.some(x=>!x||x.some(l=>!bufs[l])))return null;
+  let groups=null;
+  if(chunk){const vi=U.findIndex(u=>'aeiou'.includes(u[0]));
+    if(vi>=0){groups=[];if(vi>0)groups.push({idx:U.slice(0,vi).map((_,i)=>i)});groups.push({idx:U.slice(vi).map((_,i)=>vi+i)})}}
+  if(!groups)groups=U.map((_,i)=>({idx:[i]}));
+  groups.forEach(g=>g.letters=g.idx.flatMap(i=>L2[i]));
+  return{groups,all:L2.flat()}}
+async function blend(word,hl,chunk){
+  const p=recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
+  stop();const me=tok;await sleep(80);
+  for(const g of p.groups){if(me!==tok)return false;hl&&hl(g.idx);await playSeq(g.letters,gapMs);await sleep(350)}
+  if(me!==tok)return false;hl&&hl(-2);await sleep(150);await playSeq(p.all,gapMs);hl&&hl(-1);return me===tok}
+// ---- load saved sounds ----
+async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
+  for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
+async function initAudio(){
+  try{await Promise.all((await idbAll()).map(async r=>{try{bufs[r.letter]=await decode(r.wav.slice(0));src[r.letter]='rec';updateCard(r.letter)}catch(e){}}))}catch(e){msg('Saving on this device is not available in this browser mode (private mode?). Sounds will not be kept.',1)}
+  await Promise.all(L.filter(l=>!bufs[l]).map(async l=>{await loadRepo(l);updateCard(l)}))}
+// ---- record screen ----
+function msg(t,bad){const m=$('#recMsg');m.textContent=t;m.style.background=bad?'#ffe3e3':'#e6fff3'}
+function updateCard(l){const c=$('#rc-'+l);if(!c)return;const on=rec&&rec.letter===l,has=!!bufs[l];
+  c.className='rc'+(on?' rec':has?' ok':'');
+  c.querySelector('.st').textContent=on?'🔴 Recording…':has?(src[l]==='repo'?'📁 From /sounds':'✅ Recorded · '+bufs[l].duration.toFixed(2)+'s'):'○ Not recorded';
+  c.querySelector('.rr').textContent=on?'⏹ Stop':has?'🎙 Re-record':'🎙 Record';
+  c.querySelector('.rp').disabled=!has;c.querySelector('.rd').disabled=src[l]!=='rec';
+  $('#recCount').textContent=L.filter(x=>bufs[x]).length+' of 26 ready'}
+async function saveRaw(l,ab,quiet){
+  try{const b=await decode(ab),p=processBuf(b);
+    if(!p){if(!quiet)msg('That recording was silent. Please try again, closer to the microphone.',1);return false}
+    await idbPut(l,toWav(p.data,p.sr));
+    const nb=getCtx().createBuffer(1,p.data.length,p.sr);nb.copyToChannel(p.data,0);bufs[l]=nb;src[l]='rec';updateCard(l);
+    if(!quiet){msg(l.toUpperCase()+' saved ✅ ('+nb.duration.toFixed(2)+' seconds)');playSeq([l],0)}return true}
+  catch(e){if(!quiet)msg('Could not read that audio. Please try again or use another file.',1);return false}}
+async function stopRec(){
+  if(!rec)return;const r=rec;rec=null;clearTimeout(r.timer);
+  if(r.mr.state!=='inactive'){try{r.mr.stop()}catch(e){}await Promise.race([r.done,sleep(1500)])}
+  r.stream.getTracks().forEach(t=>t.stop());updateCard(r.letter);
+  await saveRaw(r.letter,await new Blob(r.chunks,{type:r.mr.mimeType||'audio/mp4'}).arrayBuffer())}
+async function toggleRec(l){
+  if(rec){const same=rec.letter===l;await stopRec();if(same)return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){msg('Recording does not work here. On a phone, open this page with https:// (for example GitHub Pages) in Chrome or Safari. You can also use the 📁 upload button.',1);return}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+  catch(e){msg(e.name==='NotFoundError'?'No microphone was found on this device.':'The microphone is blocked. Please allow microphone access for this page in your browser settings (tap the lock or settings icon near the web address), then try again.',1);return}
+  const mt=['audio/webm;codecs=opus','audio/webm','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
+  const mr=mt?new MediaRecorder(stream,{mimeType:mt}):new MediaRecorder(stream),chunks=[];
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  rec={letter:l,mr,stream,chunks,done:new Promise(r=>mr.onstop=r)};
+  mr.start();rec.timer=setTimeout(stopRec,3500);updateCard(l);msg('Recording '+l.toUpperCase()+'… say the sound now, then tap Stop.')}
+function buildRec(){
+  const g=$('#rgrid');
+  L.forEach(l=>{const c=document.createElement('div');c.id='rc-'+l;
+    c.innerHTML='<div class="rl" style="color:'+color(l)+'">'+l.toUpperCase()+' <small>'+l+'</small></div><div class="st"></div><div class="rb"><button class="rr big"></button><button class="rp" aria-label="Play">▶</button><button class="ru" aria-label="Upload file">📁</button><button class="rd" aria-label="Delete">🗑</button></div>';
+    c.querySelector('.rr').onclick=()=>toggleRec(l);
+    c.querySelector('.rp').onclick=()=>{stop();if(bufs[l])playSeq([l],0)};
+    c.querySelector('.ru').onclick=()=>{upLetter=l;$('#fileIn').value='';$('#fileIn').click()};
+    c.querySelector('.rd').onclick=async()=>{if(!confirm('Delete the recording for '+l.toUpperCase()+'?'))return;
+      try{await idbDel(l)}catch(e){}delete bufs[l];delete src[l];await loadRepo(l);updateCard(l);msg(l.toUpperCase()+' deleted.')};
+    g.appendChild(c);updateCard(l)})}
+$('#fileIn').onchange=async e=>{const f=e.target.files[0];if(f&&upLetter){msg('Reading file…');await saveRaw(upLetter,await f.arrayBuffer())}};
+$('#gap').value=gapMs;$('#gapTxt').textContent=gapMs+' ms';
+$('#gap').oninput=e=>{gapMs=+e.target.value;$('#gapTxt').textContent=gapMs+' ms';try{localStorage.setItem('gap',gapMs)}catch(x){}};
+$('#testBlend').onclick=()=>{stop();const w='sat'.split('');if(w.every(x=>bufs[x]))playSeq(w,gapMs);else msg('Record S, A and T first to test blending.',1)};
+// ---- ZIP export / import (no library) ----
+const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=~0;for(let i=0;i<u.length;i++)c=CRCT[(c^u[i])&255]^(c>>>8);return ~c>>>0};
+function makeZip(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  files.forEach(f=>{const nm=enc.encode(f.name),crc=crc32(f.data),h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,33,true);h.setUint32(14,crc,true);h.setUint32(18,f.data.length,true);h.setUint32(22,f.data.length,true);h.setUint16(26,nm.length,true);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(14,33,true);c.setUint32(16,crc,true);c.setUint32(20,f.data.length,true);c.setUint32(24,f.data.length,true);c.setUint16(28,nm.length,true);c.setUint32(42,off,true);
+    parts.push(new Uint8Array(h.buffer),nm,f.data);cd.push(new Uint8Array(c.buffer),nm);off+=30+nm.length+f.data.length});
+  const cdSize=cd.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/zip'})}
+async function inflate(u8){const r=new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw')));return new Uint8Array(await r.arrayBuffer())}
+async function readZip(ab){const u=new Uint8Array(ab),v=new DataView(ab),out=[];let e=u.length-22;
+  while(e>=0&&v.getUint32(e,true)!==0x06054b50)e--;if(e<0)throw new Error('Not a ZIP file');
+  const cnt=v.getUint16(e+10,true);let p=v.getUint32(e+16,true);
+  for(let i=0;i<cnt;i++){const method=v.getUint16(p+10,true),cs=v.getUint32(p+20,true),nl=v.getUint16(p+28,true),el=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),lo=v.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u.slice(p+46,p+46+nl));p+=46+nl+el+cl;
+    const ds=lo+30+v.getUint16(lo+26,true)+v.getUint16(lo+28,true);let data=u.slice(ds,ds+cs);
+    if(method===8){if(typeof DecompressionStream==='undefined'){out.push({name,skip:1});continue}data=await inflate(data)}
+    else if(method!==0){out.push({name,skip:1});continue}
+    out.push({name,data})}
+  return out}
+$('#expBtn').onclick=async()=>{
+  try{const all=await idbAll();if(!all.length){msg('Nothing to export yet. Record some sounds first.',1);return}
+    const z=makeZip(all.sort((a,b)=>a.letter<b.letter?-1:1).map(r=>({name:r.letter+'.wav',data:new Uint8Array(r.wav)})));
+    const a=document.createElement('a');a.href=URL.createObjectURL(z);a.download='phonics-sounds.zip';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);
+    msg('Exported '+all.length+' sounds as phonics-sounds.zip ✅')}catch(e){msg('Export failed. Please try again.',1)}};
+$('#impBtn').onclick=()=>{$('#zipIn').value='';$('#zipIn').click()};
+$('#zipIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;msg('Importing…');
+  try{const files=await readZip(await f.arrayBuffer());let ok=0,skip=0;
+    for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z])\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
+      if(!m)continue;if(z.skip){skip++;continue}
+      if(await saveRaw(m[1],z.data.buffer.slice(z.data.byteOffset,z.data.byteOffset+z.data.byteLength),true))ok++}
+    msg('Imported '+ok+' sounds ✅'+(skip?' ('+skip+' could not be read in this browser)':''),!ok)}
+  catch(err){msg('Could not read that ZIP file.',1)}};
+buildRec();initAudio();
 </script>
 </body>
 </html>
