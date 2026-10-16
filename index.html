@@ -88,7 +88,6 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
-  <button data-t="s3">3. Build</button>
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -158,7 +157,7 @@ function say(t,rate){return new Promise(res=>{
   if(!('speechSynthesis' in window)){setTimeout(()=>{document.body.classList.remove('talk');res()},500);return}
   const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
-  u.onend=f;u.onerror=f;setTimeout(f,3500);speechSynthesis.speak(u)})}
+  u.onstart=()=>console.log('[speech] started:',t);u.onend=f;u.onerror=e=>{console.warn('[speech] error:',e&&e.error,t);f()};setTimeout(f,3500);speechSynthesis.speak(u)})}
 function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
 const ONS0={str:'stra',spr:'spra',scr:'scra',spl:'spla',shr:'shra',thr:'thra',squ:'skwa',st:'sta',bl:'bla',cl:'cla',fl:'fla',gr:'gra',tr:'tra',sn:'sna',pl:'pla',cr:'cra',dr:'dra',fr:'fra',br:'bra',pr:'pra',gl:'gla',sl:'sla',sm:'sma',sw:'swa',sk:'ska',sp:'spa'};
 const ONSET=Object.assign({},ONS0);
@@ -180,7 +179,7 @@ function steps(word,chunk){
 async function blendTTS(word,hl,chunk){
   stop();const me=tok;await sleep(60);
   for(const st of steps(word,chunk)){if(me!==tok)return false;hl&&hl(st.idx);await say(st.t,.55);await sleep(150)}
-  if(me!==tok)return false;hl&&hl(-2);await say(word,.7);hl&&hl(-1);return me===tok}
+  if(me!==tok)return false;hl&&hl(-2);await speakWord(word);hl&&hl(-1);return me===tok}
 function star(n,el){
   stars+=n;$('#stars').textContent='⭐ '+stars;
   const r=(el||$('#stars')).getBoundingClientRect(),f=document.createElement('div');
@@ -346,11 +345,18 @@ function recPlan(word,chunk){
   if(!groups)groups=U.map((_,i)=>({idx:[i]}));
   groups.forEach(g=>g.letters=g.idx.flatMap(i=>L2[i]));
   return{groups,all:L2.flat()}}
+// FINAL STEP: speaks the whole word as TEXT with the SpeechSynthesis API (no audio clips are joined here)
+function speakWord(word){
+  if(!('speechSynthesis' in window)){console.warn('[blend] SpeechSynthesis not supported in this browser');return Promise.resolve()}
+  if(!voice)pickVoice();
+  console.log('[blend] FINAL STEP -> speechSynthesis.speak("'+word+'") | voice:',voice?voice.name+' ('+voice.lang+')':'browser default');
+  try{speechSynthesis.resume()}catch(e){}
+  return say(word,.7)}
 async function blend(word,hl,chunk){
   const p=recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
   stop();const me=tok;await sleep(80);
   for(const g of p.groups){if(me!==tok)return false;hl&&hl(g.idx);await playSeq(g.letters,gapMs);await sleep(350)}
-  if(me!==tok)return false;await sleep(250);if(me!==tok)return false;hl&&hl(-2);await say(word,.7);hl&&hl(-1);return me===tok}
+  if(me!==tok)return false;await sleep(250);if(me!==tok)return false;hl&&hl(-2);await speakWord(word);hl&&hl(-1);return me===tok}
 // ---- load saved sounds ----
 async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
   for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
