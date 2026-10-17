@@ -370,15 +370,20 @@ function speakWord(word){
   console.log('[blend] FINAL STEP -> speechSynthesis.speak("'+word+'") | voice:',voice?voice.name+' ('+voice.lang+')':'browser default');
   try{speechSynthesis.resume()}catch(e){}
   return say(word,.7)}
-// 3-letter words: onset (recorded letter) -> rime (text-to-speech, one unit) -> whole word (text-to-speech)
+// 3-letter words: onset (your recorded letter) -> rime (last two letters, spoken by text-to-speech as ONE sound)
+const RIMES={at:'at',an:'an',am:'am',ad:'add',ap:'app',ag:'agg',ax:'ax',in:'in',ig:'igg',id:'id',ib:'ibb',it:'it',og:'ogg',ot:'ot',ob:'obb',od:'odd',ox:'ox',ub:'ubb',ug:'ugg',un:'un',ut:'utt',ud:'udd',up:'up',ed:'ed',en:'en',eg:'egg',et:'et'};
+function speakRime(rime){
+  const t=RIMES[rime]||rimeSay(rime);           // always lower-case, sent as ONE word (never letter by letter)
+  console.log('[blend] rime cluster "'+rime+'" -> speechSynthesis.speak("'+t+'")');
+  try{speechSynthesis.resume()}catch(e){}
+  return say(t,.6)}
 async function blendOnsetRime(word,hl){
   stop();const me=tok;await sleep(80);
   const onset=word[0],rime=word.slice(1);
-  hl&&hl([0]);await playSeq([onset],0);await sleep(350);              // 1. onset = your recorded sound
+  hl&&hl([0]);await playSeq([onset],0);await sleep(150);   // 1. onset = your recorded sound (C)
   if(me!==tok)return false;
-  hl&&hl([1,2]);await say(rimeSay(rime),.6);await sleep(350);          // 2. rime = text-to-speech, ONE clip
-  if(me!==tok)return false;
-  hl&&hl(-2);await speakWord(word);hl&&hl(-1);return me===tok}        // 3. full word = text-to-speech
+  hl&&hl([1,2]);await speakRime(rime);                      // 2. rime = text-to-speech, ONE clip (AT)
+  hl&&hl(-1);return me===tok}
 async function blend(word,hl,chunk){
   if(!chunk&&word.length===3&&bufs[word[0]]&&!'aeiou'.includes(word[0]))return blendOnsetRime(word,hl);
   const p=chunk?null:recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
