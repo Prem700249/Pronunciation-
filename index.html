@@ -67,6 +67,15 @@ nav{flex-wrap:wrap}nav button{min-width:96px;font-size:1.05rem}
 .rl{font-size:2.6rem;font-weight:800;line-height:1.1}.rl small{font-size:1.5rem}.st{font-size:.9rem;font-weight:700;min-height:22px;margin:4px 0 8px}
 .rb{display:flex;gap:6px}.rb button{flex:1;font:inherit;font-size:1.3rem;min-height:50px;border-radius:12px;border:3px solid var(--ink);background:#fff;cursor:pointer}
 .rb .big{flex:2.6;font-size:1rem;font-weight:800;background:#ffe27a}
+#sylIn{font:inherit;font-size:1.4rem;padding:12px 14px;border:4px solid var(--ink);border-radius:16px;min-width:0;flex:1;max-width:340px}
+#sylBox{display:none;background:#fff;border:4px solid var(--ink);border-radius:24px;padding:14px;margin:6px 0 16px;text-align:center}
+#sylCount{font-size:1.6rem;font-weight:800;margin-bottom:4px}
+#sylWord{font-size:3.6rem;font-weight:800;line-height:1.3;word-break:break-word}
+#sylWord span{display:inline-block;margin:0 6px;transition:transform .15s}
+#sylWord span.on{transform:scale(1.3)}#sylWord span.all{transform:scale(1.12)}
+.swgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.sw{font:inherit;font-size:1.4rem;font-weight:800;padding:16px 6px;border:4px solid var(--ink);border-radius:18px;background:#fff;color:var(--ink);box-shadow:0 5px 0 var(--ink);cursor:pointer}
+.sw:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
 button:disabled{opacity:.35;cursor:default}
 button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 </style>
@@ -88,6 +97,7 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
+  <button data-t="s6">📚 Syllables</button>
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -112,6 +122,13 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <div id="line"><span class="ph">Drop letters here</span></div>
     <div class="acts"><button class="go" id="play">🔊 Say it</button><button id="undo">⌫ Back</button><button id="clear">✖ Clear</button></div>
     <div class="grid" id="tray"></div>
+  </section>
+  <section id="s6">
+    <h2>Syllables: longer words</h2>
+    <p class="hint">Pick a word or type your own. Each part is spoken one by one, then the whole word.</p>
+    <div class="acts" style="align-items:center"><input id="sylIn" placeholder="Type a word" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="go" id="sylGo">▶ Split &amp; play</button></div>
+    <div id="sylBox"><div id="sylCount"></div><div id="sylWord"></div><div class="acts" style="justify-content:center"><button class="go" id="sylAgain">🔊 Play again</button></div></div>
+    <div class="swgrid" id="sylList"></div>
   </section>
   <section id="s5">
     <h2>🎙 Record your own letter sounds</h2>
@@ -445,6 +462,91 @@ $('#zipIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;msg('Impor
     msg('Imported '+ok+' sounds ✅'+(skip?' ('+skip+' could not be read in this browser)':''),!ok)}
   catch(err){msg('Could not read that ZIP file.',1)}};
 buildRec();initAudio();
+/*SYL_START*/
+const SYL_WORDS='banana elephant computer together yesterday butterfly umbrella important remember beautiful tomorrow vegetable dinosaur adventure community tomato family hospital holiday birthday hamburger newspaper telephone caterpillar education kangaroo crocodile alligator wonderful helicopter bicycle chocolate calendar library understand vacation volunteer tradition necessary notebook playground basketball'.split(' ');
+const VW='aeiouy',CU2=['sh','ch','th','ph','wh','gh','ck','ng','qu'],NOONSET=['ck','ng'];
+const ONS=new Set('bl br cl cr dr fl fr gl gr pl pr sc sk sl sm sn sp st sw tr tw str spr scr spl shr thr squ sch sh ch th ph wh'.split(' '));
+const SUFS={tion:'shun',sion:'zhun',cian:'shun',ture:'chur',ment:'ment',ness:'ness',less:'less',ful:'full',ing:'ing'};
+const COMP=['day','time','work','ball','book','room','light','paper','house','board','fly','man','land','ground','copter'];
+function sylSplit(raw){
+  const w=raw.toLowerCase().replace(/[^a-z]/g,'');if(w.length<4)return[w];
+  let tail=[],stem=w,m;
+  if((m=stem.match(/^(.*?)([^aeiouy])le$/))&&/[aeiouy]/.test(m[1])){tail=[m[2]+'le'];stem=m[1]}
+  else{
+    let hit=0;
+    for(const c of COMP){if(stem.length>c.length+2&&stem.endsWith(c)&&/[aeiouy]/.test(stem.slice(0,-c.length))){tail=sylSplit(c);stem=stem.slice(0,-c.length);hit=1;break}}
+    if(!hit)for(const s of Object.keys(SUFS)){if(stem.length>s.length+1&&stem.endsWith(s)&&/[aeiouy]/.test(stem.slice(0,-s.length))){tail=[s];stem=stem.slice(0,-s.length);
+      if(s==='ing'&&/([bcdghjkmnpqrtvwx])\1$/.test(stem)){tail=[stem.slice(-1)+'ing'];stem=stem.slice(0,-1)}break}}
+  }
+  return sylStem(stem).concat(tail)}
+function sylStem(stem){
+  const ch=stem.split(''),n=ch.length,hasOther=i=>ch.some((c,k)=>k!==i&&VW.includes(c));
+  const isV=ch.map((c,i)=>{
+    if(!VW.includes(c))return false;
+    if(c==='y'&&i===0&&VW.includes(ch[1]||''))return false;
+    if(c==='u'&&ch[i-1]==='q')return false;
+    return true});
+  const e2=stem.slice(-2),prevC=i=>i>0&&!VW.includes(ch[i-1]);
+  if(ch[n-1]==='e'&&prevC(n-1)&&hasOther(n-1))isV[n-1]=false;
+  else if(e2==='ed'&&!'td'.includes(ch[n-3]||'t')&&hasOther(n-2))isV[n-2]=false;
+  else if(e2==='es'&&prevC(n-2)&&!'sxzh'.includes(ch[n-3]||'s')&&hasOther(n-2))isV[n-2]=false;
+  let g=[];for(let i=0;i<n;i++){if(isV[i]){if(g.length&&g[g.length-1][1]===i-1)g[g.length-1][1]=i;else g.push([i,i])}}
+  const out=[];
+  g.forEach(([s,e])=>{const p=stem.slice(s,e+1);
+    if(e-s===1&&(['ia','eo','ua'].includes(p)||(p==='io'&&stem[e+1]!=='n'))){out.push([s,s],[e,e])}else out.push([s,e])});
+  g=out;if(g.length<2)return[stem];
+  const cuts=[];
+  for(let i=0;i<g.length-1;i++){
+    const a=g[i],b=g[i+1],cl=stem.slice(a[1]+1,b[0]);
+    if(cl===''){cuts.push(b[0]);continue}
+    const u=[];for(let k=0;k<cl.length;){const pr=cl.substr(k,2);if(CU2.includes(pr)){u.push(pr);k+=2}else u.push(cl[k++])}
+    const lastU=u[u.length-1];
+    if(NOONSET.includes(lastU)){cuts.push(b[0]);continue}
+    if(u.length===1){
+      const x=u[0];let closed;
+      if(x.length===2)closed=!['ph','wh'].includes(x);
+      else if(x==='x')closed=true;
+      else if(a[1]>a[0])closed=true;
+      else if(b[0]===n-1&&ch[n-1]==='y'||(b[0]===n-1&&b[1]===n-1&&stem[n-1]==='y'))closed=false;
+      else if(i===0&&['re','be','de','pre'].some(p=>stem.startsWith(p)&&a[1]===p.length-1&&stem[a[1]]==='e'))closed=false;
+      else closed='ei'.includes(stem[a[1]]);
+      cuts.push(closed?b[0]:a[1]+1);continue}
+    let k=0;
+    for(let t=Math.min(u.length-1,3);t>=1;t--){const suf=u.slice(-t);const j=suf.join('');
+      if((t===1&&!NOONSET.includes(suf[0]))||ONS.has(j)){k=j.length;break}}
+    cuts.push(k?b[0]-k:a[1]+1+u[0].length)}
+  const res=[];let st=0;cuts.forEach(c=>{res.push(stem.slice(st,c));st=c});res.push(stem.slice(st));
+  return res.filter(Boolean)}
+const SOLO={a:'uh',e:'eh',i:'ih',o:'oh',u:'uh',y:'ee'};
+function sylSay(s){
+  if(SUFS[s])return SUFS[s];
+  if(s.length===1&&SOLO[s])return SOLO[s];
+  if(/^[^aeiouy]+le$/.test(s))return s.replace(/le$/,'ul');
+  if(s.length===2&&s[1]==='y'&&!VW.includes(s[0]))return s[0]+'ee';
+  return /^[aeiou][^aeiouy]$/.test(s)?rimeSay(s):s}
+/*SYL_END*/
+// ===== Syllable mode (screen) =====
+const SC=['#e63946','#1d7ae0','#2a9d4a','#f08a00','#8a3ffc','#d6338a'];
+var sylParts=[],sylW='',sylDone=new Set();
+function showSyl(word){
+  const w=word.toLowerCase().replace(/[^a-z]/g,'');if(!w)return false;
+  sylW=w;sylParts=sylSplit(w);
+  $('#sylCount').textContent=sylParts.length+(sylParts.length===1?' syllable':' syllables');
+  const box=$('#sylWord');box.innerHTML='';
+  sylParts.forEach((p,i)=>{const s=document.createElement('span');s.textContent=p;s.style.color=SC[i%SC.length];box.appendChild(s)});
+  $('#sylBox').style.display='block';return true}
+async function playSyl(){
+  if(!sylW)return;stop();const me=tok;await sleep(80);
+  const sp=[...$('#sylWord').children];
+  for(let i=0;i<sylParts.length;i++){if(me!==tok)return;sp.forEach((s,k)=>s.classList.toggle('on',k===i));await say(sylSay(sylParts[i]),.6);await sleep(300)}
+  if(me!==tok)return;sp.forEach(s=>s.classList.remove('on'));await sleep(300);if(me!==tok)return;
+  sp.forEach(s=>s.classList.add('all'));await speakWord(sylW);sp.forEach(s=>s.classList.remove('all'));
+  if(me===tok&&!sylDone.has(sylW)){sylDone.add(sylW);star(2,$('#sylBox'))}}
+SYL_WORDS.forEach(w=>{const b=document.createElement('button');b.className='sw';b.textContent=w;
+  b.onclick=()=>{showSyl(w);playSyl()};$('#sylList').appendChild(b)});
+$('#sylGo').onclick=()=>{if(showSyl($('#sylIn').value))playSyl()};
+$('#sylIn').onkeydown=e=>{if(e.key==='Enter')$('#sylGo').click()};
+$('#sylAgain').onclick=playSyl;
 </script>
 </body>
 </html>
