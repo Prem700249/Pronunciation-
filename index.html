@@ -142,6 +142,10 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <p class="hint">Record each one once, like the sound a teacher says (for example "shr" as in shrub). It is reused in every word that starts or ends with it. The whole word at the end is always spoken by the computer voice.</p>
     <b id="clCount" style="font-size:1.2rem;display:block;margin-bottom:10px"></b>
     <div class="rgrid" id="cgrid"></div>
+    <h2 style="margin-top:26px">🎙 Special sounds</h2>
+    <p class="hint">Each sound is saved only once. If it is also used somewhere else in the app, recording it here updates it there too.</p>
+    <b id="spCount" style="font-size:1.2rem;display:block;margin-bottom:10px"></b>
+    <div class="rgrid" id="sgrid"></div>
     <input type="file" id="fileIn" accept="audio/*" hidden><input type="file" id="zipIn" accept=".zip,application/zip" hidden>
   </section>
   <section id="s4">
@@ -338,6 +342,8 @@ const CLUSTERS=(()=>{
     if(o.length>1)on.add(o);if(r.length>1)ri.add(r)}));
   const srt=a=>[...a].sort((x,y)=>x.length-y.length||(x<y?-1:1));
   return[...new Set([...CLUSTERS_MANUAL,...srt(on),...srt(ri)])]})();
+// Special sounds section (in this order). Same recording is shared with the same sound anywhere else in the app.
+const SPECIAL=['m','ag','ib','ut','ud','am','ix','at','ob','squ','sh','class','pl'];
 var AC=window.AudioContext||window.webkitAudioContext,ctx=null,bufs={},src={},playing=[],rec=null,gapMs=70,upLetter=null;
 try{gapMs=+(localStorage.getItem('gap')||70)}catch(e){}
 const getCtx=()=>ctx||(ctx=new AC());
@@ -419,16 +425,20 @@ async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
   for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
 async function initAudio(){
   try{await Promise.all((await idbAll()).map(async r=>{try{bufs[r.letter]=await decode(r.wav.slice(0));src[r.letter]='rec';updateCard(r.letter)}catch(e){}}))}catch(e){msg('Saving on this device is not available in this browser mode (private mode?). Sounds will not be kept.',1)}
-  const todo=L.concat(CLUSTERS).filter(l=>!bufs[l]);
+  const todo=L.concat(CLUSTERS,SPECIAL).filter(l=>!bufs[l]);
   for(let i=0;i<todo.length;i+=8)await Promise.all(todo.slice(i,i+8).map(async l=>{await loadRepo(l);updateCard(l)}))}
 // ---- record screen ----
 function msg(t,bad){const m=$('#recMsg');m.textContent=t;m.style.background=bad?'#ffe3e3':'#e6fff3'}
-function updateCard(l){const c=$('#rc-'+l);if(!c)return;const on=rec&&rec.letter===l,has=!!bufs[l];
-  c.className='rc'+(on?' rec':has?' ok':'');
-  c.querySelector('.st').textContent=on?'🔴 Recording…':has?(src[l]==='repo'?'📁 From /sounds':'✅ Recorded · '+bufs[l].duration.toFixed(2)+'s'):'○ Not recorded';
-  c.querySelector('.rr').textContent=on?'⏹ Stop':has?'🎙 Re-record':'🎙 Record';
-  c.querySelector('.rp').disabled=!has;c.querySelector('.rd').disabled=src[l]!=='rec';
-  $('#recCount').textContent=L.filter(x=>bufs[x]).length+' of 26 ready';const cc=$('#clCount');if(cc)cc.textContent=CLUSTERS.filter(x=>bufs[x]).length+' of '+CLUSTERS.length+' blend sounds ready'}
+function updateCard(l){
+  document.querySelectorAll('.rc[data-k="'+l+'"]').forEach(c=>{const on=rec&&rec.letter===l,has=!!bufs[l];
+    c.className='rc'+(on?' rec':has?' ok':'');
+    c.querySelector('.st').textContent=on?'🔴 Recording…':has?(src[l]==='repo'?'📁 From /sounds':'✅ Recorded · '+bufs[l].duration.toFixed(2)+'s'):'○ Not recorded';
+    c.querySelector('.rr').textContent=on?'⏹ Stop':has?'🎙 Re-record':'🎙 Record';
+    c.querySelector('.rp').disabled=!has;c.querySelector('.rd').disabled=src[l]!=='rec'});
+  const n=a=>a.filter(x=>bufs[x]).length,BL=CLUSTERS.filter(x=>!SPECIAL.includes(x));
+  $('#recCount').textContent=n(L)+' of 26 ready';
+  const cc=$('#clCount');if(cc)cc.textContent=n(BL)+' of '+BL.length+' blend sounds ready';
+  const sc=$('#spCount');if(sc)sc.textContent=n(SPECIAL)+' of '+SPECIAL.length+' ready'}
 async function saveRaw(l,ab,quiet){
   try{const b=await decode(ab),p=processBuf(b);
     if(!p){if(!quiet)msg('That recording was silent. Please try again, closer to the microphone.',1);return false}
@@ -452,16 +462,20 @@ async function toggleRec(l){
   mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
   rec={letter:l,mr,stream,chunks,done:new Promise(r=>mr.onstop=r)};
   mr.start();rec.timer=setTimeout(stopRec,3500);updateCard(l);msg('Recording '+l.toUpperCase()+'… say the sound now, then tap Stop.')}
+function mkCard(l,grid){
+  const c=document.createElement('div');c.dataset.k=l;c.className='rc';
+  c.innerHTML='<div class="rl" style="color:'+color(l)+'">'+(l.length>1?l:l.toUpperCase()+' <small>'+l+'</small>')+'</div><div class="st"></div><div class="rb"><button class="rr big"></button><button class="rp" aria-label="Play">▶</button><button class="ru" aria-label="Upload file">📁</button><button class="rd" aria-label="Delete">🗑</button></div>';
+  c.querySelector('.rr').onclick=()=>toggleRec(l);
+  c.querySelector('.rp').onclick=()=>{stop();if(bufs[l])playSeq([l],0)};
+  c.querySelector('.ru').onclick=()=>{upLetter=l;$('#fileIn').value='';$('#fileIn').click()};
+  c.querySelector('.rd').onclick=async()=>{if(!confirm('Delete the recording for '+l.toUpperCase()+'?'))return;
+    try{await idbDel(l)}catch(e){}delete bufs[l];delete src[l];await loadRepo(l);updateCard(l);msg(l.toUpperCase()+' deleted.')};
+  grid.appendChild(c)}
 function buildRec(){
-  const g=$('#rgrid');
-  L.concat(CLUSTERS).forEach(l=>{const c=document.createElement('div');c.id='rc-'+l;
-    c.innerHTML='<div class="rl" style="color:'+color(l)+'">'+(l.length>1?l:l.toUpperCase()+' <small>'+l+'</small>')+'</div><div class="st"></div><div class="rb"><button class="rr big"></button><button class="rp" aria-label="Play">▶</button><button class="ru" aria-label="Upload file">📁</button><button class="rd" aria-label="Delete">🗑</button></div>';
-    c.querySelector('.rr').onclick=()=>toggleRec(l);
-    c.querySelector('.rp').onclick=()=>{stop();if(bufs[l])playSeq([l],0)};
-    c.querySelector('.ru').onclick=()=>{upLetter=l;$('#fileIn').value='';$('#fileIn').click()};
-    c.querySelector('.rd').onclick=async()=>{if(!confirm('Delete the recording for '+l.toUpperCase()+'?'))return;
-      try{await idbDel(l)}catch(e){}delete bufs[l];delete src[l];await loadRepo(l);updateCard(l);msg(l.toUpperCase()+' deleted.')};
-    (l.length>1?$('#cgrid'):g).appendChild(c);updateCard(l)})}
+  L.forEach(l=>mkCard(l,$('#rgrid')));
+  CLUSTERS.filter(x=>!SPECIAL.includes(x)).forEach(l=>mkCard(l,$('#cgrid')));
+  SPECIAL.forEach(l=>mkCard(l,$('#sgrid')));   // each sound has ONE card and ONE saved recording
+  L.concat(CLUSTERS,SPECIAL).forEach(updateCard)}
 $('#fileIn').onchange=async e=>{const f=e.target.files[0];if(f&&upLetter){msg('Reading file…');await saveRaw(upLetter,await f.arrayBuffer())}};
 $('#gap').value=gapMs;$('#gapTxt').textContent=gapMs+' ms';
 $('#gap').oninput=e=>{gapMs=+e.target.value;$('#gapTxt').textContent=gapMs+' ms';try{localStorage.setItem('gap',gapMs)}catch(x){}};
@@ -498,7 +512,7 @@ $('#impBtn').onclick=()=>{$('#zipIn').value='';$('#zipIn').click()};
 $('#zipIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;msg('Importing…');
   try{const files=await readZip(await f.arrayBuffer());let ok=0,skip=0;
     for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z]{1,8})\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
-      if(!m||!(L.includes(m[1])||CLUSTERS.includes(m[1])))continue;if(z.skip){skip++;continue}
+      if(!m||!(L.includes(m[1])||CLUSTERS.includes(m[1])||SPECIAL.includes(m[1])))continue;if(z.skip){skip++;continue}
       if(await saveRaw(m[1],z.data.buffer.slice(z.data.byteOffset,z.data.byteOffset+z.data.byteLength),true))ok++}
     msg('Imported '+ok+' sounds ✅'+(skip?' ('+skip+' could not be read in this browser)':''),!ok)}
   catch(err){msg('Could not read that ZIP file.',1)}};
@@ -613,6 +627,7 @@ async function blendLong(word,hl){
     else list.push({t:ONSET[ok]||on.map(snd).join(' '),idx:on.map((_,i)=>i)})}              // b) respelled text-to-speech
   const rk=rime.join('');
   list.push(bufs[rk]?{rec:rk,idx:rime.map((_,i)=>vi+i)}:{t:rimeFix(rk),idx:rime.map((_,i)=>vi+i)});
+  if(bufs[word])list.splice(0,list.length,{rec:word,idx:U.map((_,i)=>i)});   // a recording of the whole sound (like 'class') is used first
   stop();const me=tok;await sleep(80);
   for(const st of list){
     if(me!==tok)return false;hl&&hl(st.idx);
