@@ -177,7 +177,7 @@ function say(t,rate){return new Promise(res=>{
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
   u.onstart=()=>console.log('[speech] started:',t);u.onend=f;u.onerror=e=>{console.warn('[speech] error:',e&&e.error,t);f()};setTimeout(f,3500);speechSynthesis.speak(u)})}
 function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
-const ONS0={str:'stra',spr:'spra',scr:'scra',spl:'spla',shr:'shra',thr:'thra',squ:'skwa',st:'sta',bl:'bla',cl:'cla',fl:'fla',gr:'gra',tr:'tra',sn:'sna',pl:'pla',cr:'cra',dr:'dra',fr:'fra',br:'bra',pr:'pra',gl:'gla',sl:'sla',sm:'sma',sw:'swa',sk:'ska',sp:'spa'};
+const ONS0={sh:'shhh',ch:'chuh',th:'thuh',wh:'wuh',str:'struh',spr:'spruh',scr:'skruh',spl:'spluh',shr:'shruh',thr:'thruh',squ:'skwuh',st:'stuh',bl:'bluh',cl:'kluh',fl:'fluh',gr:'gruh',tr:'truh',sn:'snuh',pl:'pluh',cr:'kruh',dr:'druh',fr:'fruh',br:'bruh',pr:'pruh',gl:'gluh',sl:'sluh',sm:'smuh',sw:'swuh',sk:'skuh',sp:'spuh'};
 const ONSET=Object.assign({},ONS0);
 try{Object.assign(ONSET,JSON.parse(localStorage.getItem('ons')||'{}'))}catch(e){}
 function rimeSay(r){return r.length==2&&!'aeiou'.includes(r[1])?r+r[1]:r}
@@ -364,12 +364,12 @@ function recPlan(word,chunk){
   groups.forEach(g=>g.letters=g.idx.flatMap(i=>L2[i]));
   return{groups,all:L2.flat()}}
 // FINAL STEP: speaks the whole word as TEXT with the SpeechSynthesis API (no audio clips are joined here)
-function speakWord(word){
+function speakWord(word,rate){
   if(!('speechSynthesis' in window)){console.warn('[blend] SpeechSynthesis not supported in this browser');return Promise.resolve()}
   if(!voice)pickVoice();
   console.log('[blend] FINAL STEP -> speechSynthesis.speak("'+word+'") | voice:',voice?voice.name+' ('+voice.lang+')':'browser default');
   try{speechSynthesis.resume()}catch(e){}
-  return say(word,.7)}
+  return say(word,rate||.7)}
 // 3-letter words: onset (your recorded letter) -> rime (last two letters, spoken by text-to-speech as ONE sound)
 const RIMES={at:'at',an:'an',am:'am',ad:'add',ap:'app',ag:'agg',ax:'ax',in:'in',ig:'igg',id:'id',ib:'ibb',it:'it',og:'ogg',ot:'ot',ob:'obb',od:'odd',ox:'ox',ub:'ubb',ug:'ugg',un:'un',ut:'utt',ud:'udd',up:'up',ed:'ed',en:'en',eg:'egg',et:'et'};
 function speakRime(rime){
@@ -387,6 +387,7 @@ async function blendOnsetRime(word,hl){
   hl&&hl(-2);await speakWord(word);                         // 3. whole word = text-to-speech (BAT)
   hl&&hl(-1);return me===tok}
 async function blend(word,hl,chunk){
+  if(chunk)return blendLong(word,hl);
   if(!chunk&&word.length===3&&bufs[word[0]]&&!'aeiou'.includes(word[0]))return blendOnsetRime(word,hl);
   const p=chunk?null:recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
   stop();const me=tok;await sleep(80);
@@ -575,6 +576,28 @@ function applyMode(){
   $('#sylPane').style.display=syl?'block':'none'}
 document.querySelectorAll('#modeBar button').forEach(b=>b.onclick=()=>{auto++;setAuto(false);stop();mode=b.dataset.m;applyMode()});
 applyMode();
+// ================= LONG WORDS (4+ letters): onset -> rime -> whole word =================
+// EASY TO EDIT:  1) ONS0 (above) = how each start cluster is spoken (str, scr, spl, sh, st, cl ...)
+//                2) RIME_SAY (below) = how each ending is spoken. Key = spelling, value = what the voice should read.
+const RIME_SAY={ip:'ipp',ub:'ubb',im:'imm',us:'uss',ab:'abb',ad:'add',ag:'agg',ap:'app',ib:'ibb',id:'idd',ig:'igg',in:'inn',ob:'obb',od:'odd',og:'ogg',op:'opp',ot:'ott',ud:'udd',ug:'ugg',um:'umm',un:'unn',up:'upp',ut:'utt',ed:'edd',eg:'egg',em:'emm',en:'enn',et:'ett',it:'itt',is:'iss',at:'att',am:'amm',an:'ann'};
+const rimeFix=r=>RIME_SAY[r]||rimeSay(r);
+const LONG_RATE=.8,LONG_PAUSE=150;
+async function blendLong(word,hl){
+  const U=units(word),vi=U.findIndex(u=>'aeiou'.includes(u[0]));
+  if(vi<0)return blendTTS(word,hl,false);
+  const on=U.slice(0,vi),rime=U.slice(vi),list=[];
+  if(on.length){
+    if(on.length===1&&on[0].length===1&&bufs[on[0]])list.push({rec:on[0],idx:[0]});          // a) your recording, if you have one
+    else list.push({t:ONSET[on.join('')]||on.map(snd).join(' '),idx:on.map((_,i)=>i)})}     // b) respelled text-to-speech
+  list.push({t:rimeFix(rime.join('')),idx:rime.map((_,i)=>vi+i)});
+  stop();const me=tok;await sleep(80);
+  for(const st of list){
+    if(me!==tok)return false;hl&&hl(st.idx);
+    if(st.rec)await playSeq([st.rec],0);
+    else{console.log('[long] unit -> speak("'+st.t+'")');try{speechSynthesis.resume()}catch(e){}await say(st.t,LONG_RATE)}
+    await sleep(LONG_PAUSE)}
+  if(me!==tok)return false;
+  hl&&hl(-2);await speakWord(word,LONG_RATE);hl&&hl(-1);return me===tok}
 </script>
 </body>
 </html>
