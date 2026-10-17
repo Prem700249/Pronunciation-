@@ -324,9 +324,20 @@ $('#resetSnd').onclick=()=>{Object.assign(ONSET,ONS0);try{localStorage.removeIte
   document.querySelectorAll('#tune input').forEach((x,i)=>x.value=DEF[L[i]])};
 if('speechSynthesis' in window)pickVoice();
 // ================= Recorded sounds (real voice) =================
-// EDIT THIS LIST to add or remove blend sounds you want to record (start clusters like 'str', or endings like 'ub').
-// Each one is recorded once and reused automatically in every word that starts with it (onset) or ends with it (rime).
-const CLUSTERS=['str','spr','spl','shr','thr','sh','ch','th','ub','ip','im','st','cl','fl','gr','tr','pl','us'];
+// BLEND SOUNDS to record. 'CLUSTERS_MANUAL' is your own editable list (add or remove names any time).
+// The app also adds, by itself, every start cluster (like 'str') and every ending (like 'at', 'amp') used by the words in the 3 letters and 4 or more letters levels.
+// Each one is recorded once and reused automatically in every word that starts or ends with it.
+const CLUSTERS_MANUAL=['str','spr','spl','shr','thr','sh','ch','th','ub','ip','im','st','cl','fl','gr','tr','pl','us'];
+const CLUSTERS=(()=>{
+  const on=new Set(),ri=new Set();
+  Object.keys(LEVELS).forEach(n=>LEVELS[n].forEach(w=>{
+    if(+n===3){if(!'aeiou'.includes(w[0]))ri.add(w.slice(1));return}
+    if(+n<4)return;
+    const U=units(w),vi=U.findIndex(u=>'aeiou'.includes(u[0]));if(vi<0)return;
+    const o=U.slice(0,vi).join(''),r=U.slice(vi).join('');
+    if(o.length>1)on.add(o);if(r.length>1)ri.add(r)}));
+  const srt=a=>[...a].sort((x,y)=>x.length-y.length||(x<y?-1:1));
+  return[...new Set([...CLUSTERS_MANUAL,...srt(on),...srt(ri)])]})();
 var AC=window.AudioContext||window.webkitAudioContext,ctx=null,bufs={},src={},playing=[],rec=null,gapMs=70,upLetter=null;
 try{gapMs=+(localStorage.getItem('gap')||70)}catch(e){}
 const getCtx=()=>ctx||(ctx=new AC());
@@ -408,7 +419,8 @@ async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
   for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
 async function initAudio(){
   try{await Promise.all((await idbAll()).map(async r=>{try{bufs[r.letter]=await decode(r.wav.slice(0));src[r.letter]='rec';updateCard(r.letter)}catch(e){}}))}catch(e){msg('Saving on this device is not available in this browser mode (private mode?). Sounds will not be kept.',1)}
-  await Promise.all(L.concat(CLUSTERS).filter(l=>!bufs[l]).map(async l=>{await loadRepo(l);updateCard(l)}))}
+  const todo=L.concat(CLUSTERS).filter(l=>!bufs[l]);
+  for(let i=0;i<todo.length;i+=8)await Promise.all(todo.slice(i,i+8).map(async l=>{await loadRepo(l);updateCard(l)}))}
 // ---- record screen ----
 function msg(t,bad){const m=$('#recMsg');m.textContent=t;m.style.background=bad?'#ffe3e3':'#e6fff3'}
 function updateCard(l){const c=$('#rc-'+l);if(!c)return;const on=rec&&rec.letter===l,has=!!bufs[l];
@@ -485,7 +497,7 @@ $('#expBtn').onclick=async()=>{
 $('#impBtn').onclick=()=>{$('#zipIn').value='';$('#zipIn').click()};
 $('#zipIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;msg('Importing…');
   try{const files=await readZip(await f.arrayBuffer());let ok=0,skip=0;
-    for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z]{1,4})\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
+    for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z]{1,8})\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
       if(!m||!(L.includes(m[1])||CLUSTERS.includes(m[1])))continue;if(z.skip){skip++;continue}
       if(await saveRaw(m[1],z.data.buffer.slice(z.data.byteOffset,z.data.byteOffset+z.data.byteLength),true))ok++}
     msg('Imported '+ok+' sounds ✅'+(skip?' ('+skip+' could not be read in this browser)':''),!ok)}
