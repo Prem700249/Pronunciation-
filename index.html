@@ -97,7 +97,6 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
-  <button data-t="s6">📚 Syllables</button>
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -110,11 +109,20 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
   <section id="s2">
     <h2>Tap a word, listen and blend</h2>
     <div class="levels" id="levels"></div>
+    <div class="levels" id="modeBar" style="display:none"><button data-m="letters" class="on">Letters</button><button data-m="syl">Syllables</button></div>
+    <div id="letterPane">
     <div class="bar"><i id="fill"></i></div>
     <div id="barTxt"></div>
     <div class="acts" style="align-items:center"><button class="go" id="autoBtn">▶ Play all</button><label style="font-weight:800;font-size:1.05rem"><input type="checkbox" id="autoNext" checked style="width:22px;height:22px;vertical-align:middle"> Go to next page automatically</label></div>
     <div class="words" id="words"></div>
     <div class="acts" id="pager" style="justify-content:center;align-items:center;margin-top:18px"><button id="prev">⬅ Back</button><b id="pg"></b><button id="next">Next ➡</button></div>
+    </div>
+    <div id="sylPane" style="display:none">
+    <p class="hint">Pick a word or type your own. Each part is spoken one by one, then the whole word.</p>
+    <div class="acts" style="align-items:center"><input id="sylIn" placeholder="Type a word" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="go" id="sylGo">▶ Split &amp; play</button></div>
+    <div id="sylBox"><div id="sylCount"></div><div id="sylWord"></div><div class="acts" style="justify-content:center"><button class="go" id="sylAgain">🔊 Play again</button></div></div>
+    <div class="swgrid" id="sylList"></div>
+    </div>
   </section>
   <section id="s3">
     <h2>Drag letters into the box</h2>
@@ -122,13 +130,6 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <div id="line"><span class="ph">Drop letters here</span></div>
     <div class="acts"><button class="go" id="play">🔊 Say it</button><button id="undo">⌫ Back</button><button id="clear">✖ Clear</button></div>
     <div class="grid" id="tray"></div>
-  </section>
-  <section id="s6">
-    <h2>Syllables: longer words</h2>
-    <p class="hint">Pick a word or type your own. Each part is spoken one by one, then the whole word.</p>
-    <div class="acts" style="align-items:center"><input id="sylIn" placeholder="Type a word" autocapitalize="none" autocomplete="off" spellcheck="false"><button class="go" id="sylGo">▶ Split &amp; play</button></div>
-    <div id="sylBox"><div id="sylCount"></div><div id="sylWord"></div><div class="acts" style="justify-content:center"><button class="go" id="sylAgain">🔊 Play again</button></div></div>
-    <div class="swgrid" id="sylList"></div>
   </section>
   <section id="s5">
     <h2>🎙 Record your own letter sounds</h2>
@@ -167,7 +168,7 @@ const $=s=>document.querySelector(s);
 let stars=0,voice=null,tok=0,level=2,page=0,done=new Set(),heard=new Set(),free=[];
 const color=c=>V.includes(c)?'#ff5a5f':`hsl(${(L.indexOf(c)*47)%360 + 170},62%,42%)`;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function pickVoice(){const v=speechSynthesis.getVoices();const lg=x=>x.lang.replace('_','-');voice=v.find(x=>lg(x)==='en-IN')||v.find(x=>lg(x)==='en-GB')||v.find(x=>lg(x)==='en-US')||v.find(x=>x.lang.startsWith('en'))||null;const vi=document.getElementById('voiceInfo');if(vi)vi.textContent=voice?'Voice in use: '+voice.name+' ('+voice.lang+')':'No English voice found'}
+function pickVoice(){const v=speechSynthesis.getVoices();const lg=x=>x.lang.replace('_','-');voice=v.find(x=>lg(x)==='en-IN')||v.find(x=>lg(x)==='en-GB')||v.find(x=>x.lang.startsWith('en'))||null;const vi=document.getElementById('voiceInfo');if(vi)vi.textContent=voice?'Voice in use: '+voice.name+' ('+voice.lang+')':'No English voice found'}
 if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
 function say(t,rate){return new Promise(res=>{
   $('#bubble').textContent=t;document.body.classList.add('talk');
@@ -231,7 +232,7 @@ function renderLevels(){
   Object.keys(LEVELS).forEach(n=>{const b=document.createElement('button');
     const all=LEVELS[n].every(w=>done.has(w));
     b.textContent=(n==4?'4 or more letters':n+' letters')+(all?' ✅':'');if(+n===level)b.className='on';
-    b.onclick=()=>{auto++;setAuto(false);stop();level=+n;page=0;renderLevels();renderWords()};$('#levels').appendChild(b)})}
+    b.onclick=()=>{auto++;setAuto(false);stop();level=+n;page=0;renderLevels();renderWords()};$('#levels').appendChild(b)});applyMode()}
 function progress(){
   const w=LEVELS[level],n=w.filter(x=>done.has(x)).length;
   $('#fill').style.width=n/w.length*100+'%';
@@ -370,7 +371,7 @@ function speakWord(word){
   try{speechSynthesis.resume()}catch(e){}
   return say(word,.7)}
 async function blend(word,hl,chunk){
-  const p=recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
+  const p=chunk?null:recPlan(word,chunk);if(!p)return blendTTS(word,hl,chunk);
   stop();const me=tok;await sleep(80);
   for(const g of p.groups){if(me!==tok)return false;hl&&hl(g.idx);await playSeq(g.letters,gapMs);await sleep(350)}
   if(me!==tok)return false;await sleep(250);if(me!==tok)return false;hl&&hl(-2);await speakWord(word);hl&&hl(-1);return me===tok}
@@ -547,6 +548,16 @@ SYL_WORDS.forEach(w=>{const b=document.createElement('button');b.className='sw';
 $('#sylGo').onclick=()=>{if(showSyl($('#sylIn').value))playSyl()};
 $('#sylIn').onkeydown=e=>{if(e.key==='Enter')$('#sylGo').click()};
 $('#sylAgain').onclick=playSyl;
+// ===== Long-words tab: Letters / Syllables switch =====
+var mode='letters';
+function applyMode(){
+  const lv=level===4,syl=lv&&mode==='syl';
+  $('#modeBar').style.display=lv?'flex':'none';
+  document.querySelectorAll('#modeBar button').forEach(b=>b.classList.toggle('on',b.dataset.m===mode));
+  $('#letterPane').style.display=syl?'none':'';
+  $('#sylPane').style.display=syl?'block':'none'}
+document.querySelectorAll('#modeBar button').forEach(b=>b.onclick=()=>{auto++;setAuto(false);stop();mode=b.dataset.m;applyMode()});
+applyMode();
 </script>
 </body>
 </html>
