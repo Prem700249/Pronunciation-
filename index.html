@@ -382,7 +382,9 @@ async function blendOnsetRime(word,hl){
   const onset=word[0],rime=word.slice(1);
   hl&&hl([0]);await playSeq([onset],0);await sleep(150);   // 1. onset = your recorded sound (C)
   if(me!==tok)return false;
-  hl&&hl([1,2]);await speakRime(rime);                      // 2. rime = text-to-speech, ONE clip (AT)
+  hl&&hl([1,2]);await speakRime(rime);await sleep(350);     // 2. rime = text-to-speech, ONE clip (AT)
+  if(me!==tok)return false;
+  hl&&hl(-2);await speakWord(word);                         // 3. whole word = text-to-speech (BAT)
   hl&&hl(-1);return me===tok}
 async function blend(word,hl,chunk){
   if(!chunk&&word.length===3&&bufs[word[0]]&&!'aeiou'.includes(word[0]))return blendOnsetRime(word,hl);
