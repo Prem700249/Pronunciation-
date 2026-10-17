@@ -180,7 +180,7 @@ function say(t,rate){return new Promise(res=>{
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
   u.onstart=()=>console.log('[speech] started:',t);u.onend=f;u.onerror=e=>{console.warn('[speech] error:',e&&e.error,t);f()};setTimeout(f,3500);speechSynthesis.speak(u)})}
 function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
-const ONS0={sh:'sheh',ch:'cheh',th:'thuh',wh:'wuh',str:'struh',spr:'spruh',scr:'skruh',spl:'spluh',shr:'shruh',thr:'thruh',squ:'skwuh',st:'sta',bl:'bluh',cl:'kla',fl:'fla',gr:'gra',tr:'tra',sn:'snuh',pl:'pla',cr:'kruh',dr:'druh',fr:'fruh',br:'bruh',pr:'pruh',gl:'gluh',sl:'sluh',sm:'smuh',sw:'swuh',sk:'skuh',sp:'spuh'};
+const ONS0={sh:'sha',ch:'cha',th:'tha',wh:'wa',str:'stra',spr:'spra',scr:'skra',spl:'spla',shr:'shra',thr:'thra',squ:'skwa',st:'sta',bl:'bla',cl:'kla',fl:'fla',gr:'gra',tr:'tra',sn:'sna',pl:'pla',cr:'kra',dr:'dra',fr:'fra',br:'bra',pr:'pra',gl:'gla',sl:'sla',sm:'sma',sw:'swa',sk:'ska',sp:'spa'};
 const ONSET=Object.assign({},ONS0);
 try{Object.assign(ONSET,JSON.parse(localStorage.getItem('ons')||'{}'))}catch(e){}
 function rimeSay(r){return r.length==2&&!'aeiou'.includes(r[1])?r+r[1]:r}
@@ -611,7 +611,7 @@ function addChips(row,list,inp,set){
     c.style.cssText='font-size:1rem;padding:6px 10px;background:#e8e4ff;border:2px solid #7b5cff;border-radius:10px';
     c.onclick=()=>{inp.value=v;set(v);stop();say(v,LONG_RATE)};d.appendChild(c)});
   row.appendChild(d)}
-const ONS_TRY={sh:['shh','shhh','sheh','shuh','shah'],ch:['cheh','cha','chuh','chih','chh']};
+const ONS_TRY={sh:['sha','shh','shhh','sheh','shah'],ch:['cha','cheh','chuh','chah','chh'],th:['tha','thah','theh','thuh']};
 document.querySelectorAll('#tuneO .row').forEach(r=>{
   const k=r.querySelector('b').textContent,inp=r.querySelector('input');r.style.flexWrap='wrap';
   addChips(r,ONS_TRY[k]||['a','ah','uh','eh','ih'].map(e=>k+e),inp,v=>{ONSET[k]=v;saveOns()})});
