@@ -138,6 +138,10 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <div class="acts" style="align-items:center"><b id="recCount" style="font-size:1.2rem"></b><button id="expBtn">⬇ Export all sounds (ZIP)</button><button id="impBtn">⬆ Import sounds (ZIP)</button></div>
     <div class="acts" style="align-items:center"><label style="font-weight:800">Gap between sounds when blending: <span id="gapTxt"></span><br><input type="range" id="gap" min="0" max="200" step="10" style="width:260px;max-width:80vw"></label><button class="go" id="testBlend">▶ Test blend: s-a-t</button></div>
     <div class="rgrid" id="rgrid"></div>
+    <h2 style="margin-top:26px">🎙 Blend sounds (clusters)</h2>
+    <p class="hint">Record each one once, like the sound a teacher says (for example "shr" as in shrub). It is reused in every word that starts or ends with it. The whole word at the end is always spoken by the computer voice.</p>
+    <b id="clCount" style="font-size:1.2rem;display:block;margin-bottom:10px"></b>
+    <div class="rgrid" id="cgrid"></div>
     <input type="file" id="fileIn" accept="audio/*" hidden><input type="file" id="zipIn" accept=".zip,application/zip" hidden>
   </section>
   <section id="s4">
@@ -320,6 +324,9 @@ $('#resetSnd').onclick=()=>{Object.assign(ONSET,ONS0);try{localStorage.removeIte
   document.querySelectorAll('#tune input').forEach((x,i)=>x.value=DEF[L[i]])};
 if('speechSynthesis' in window)pickVoice();
 // ================= Recorded sounds (real voice) =================
+// EDIT THIS LIST to add or remove blend sounds you want to record (start clusters like 'str', or endings like 'ub').
+// Each one is recorded once and reused automatically in every word that starts with it (onset) or ends with it (rime).
+const CLUSTERS=['str','spr','spl','shr','thr','sh','ch','th','ub','ip','im','st','cl','fl','gr','tr','pl','us'];
 var AC=window.AudioContext||window.webkitAudioContext,ctx=null,bufs={},src={},playing=[],rec=null,gapMs=70,upLetter=null;
 try{gapMs=+(localStorage.getItem('gap')||70)}catch(e){}
 const getCtx=()=>ctx||(ctx=new AC());
@@ -385,7 +392,7 @@ async function blendOnsetRime(word,hl){
   const onset=word[0],rime=word.slice(1);
   hl&&hl([0]);await playSeq([onset],0);await sleep(150);   // 1. onset = your recorded sound (C)
   if(me!==tok)return false;
-  hl&&hl([1,2]);await speakRime(rime);await sleep(350);     // 2. rime = text-to-speech, ONE clip (AT)
+  hl&&hl([1,2]);if(bufs[rime])await playSeq([rime],0);else await speakRime(rime);await sleep(350);     // 2. rime = text-to-speech, ONE clip (AT)
   if(me!==tok)return false;
   hl&&hl(-2);await speakWord(word);                         // 3. whole word = text-to-speech (BAT)
   hl&&hl(-1);return me===tok}
@@ -401,7 +408,7 @@ async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
   for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
 async function initAudio(){
   try{await Promise.all((await idbAll()).map(async r=>{try{bufs[r.letter]=await decode(r.wav.slice(0));src[r.letter]='rec';updateCard(r.letter)}catch(e){}}))}catch(e){msg('Saving on this device is not available in this browser mode (private mode?). Sounds will not be kept.',1)}
-  await Promise.all(L.filter(l=>!bufs[l]).map(async l=>{await loadRepo(l);updateCard(l)}))}
+  await Promise.all(L.concat(CLUSTERS).filter(l=>!bufs[l]).map(async l=>{await loadRepo(l);updateCard(l)}))}
 // ---- record screen ----
 function msg(t,bad){const m=$('#recMsg');m.textContent=t;m.style.background=bad?'#ffe3e3':'#e6fff3'}
 function updateCard(l){const c=$('#rc-'+l);if(!c)return;const on=rec&&rec.letter===l,has=!!bufs[l];
@@ -409,7 +416,7 @@ function updateCard(l){const c=$('#rc-'+l);if(!c)return;const on=rec&&rec.letter
   c.querySelector('.st').textContent=on?'🔴 Recording…':has?(src[l]==='repo'?'📁 From /sounds':'✅ Recorded · '+bufs[l].duration.toFixed(2)+'s'):'○ Not recorded';
   c.querySelector('.rr').textContent=on?'⏹ Stop':has?'🎙 Re-record':'🎙 Record';
   c.querySelector('.rp').disabled=!has;c.querySelector('.rd').disabled=src[l]!=='rec';
-  $('#recCount').textContent=L.filter(x=>bufs[x]).length+' of 26 ready'}
+  $('#recCount').textContent=L.filter(x=>bufs[x]).length+' of 26 ready';const cc=$('#clCount');if(cc)cc.textContent=CLUSTERS.filter(x=>bufs[x]).length+' of '+CLUSTERS.length+' blend sounds ready'}
 async function saveRaw(l,ab,quiet){
   try{const b=await decode(ab),p=processBuf(b);
     if(!p){if(!quiet)msg('That recording was silent. Please try again, closer to the microphone.',1);return false}
@@ -435,14 +442,14 @@ async function toggleRec(l){
   mr.start();rec.timer=setTimeout(stopRec,3500);updateCard(l);msg('Recording '+l.toUpperCase()+'… say the sound now, then tap Stop.')}
 function buildRec(){
   const g=$('#rgrid');
-  L.forEach(l=>{const c=document.createElement('div');c.id='rc-'+l;
-    c.innerHTML='<div class="rl" style="color:'+color(l)+'">'+l.toUpperCase()+' <small>'+l+'</small></div><div class="st"></div><div class="rb"><button class="rr big"></button><button class="rp" aria-label="Play">▶</button><button class="ru" aria-label="Upload file">📁</button><button class="rd" aria-label="Delete">🗑</button></div>';
+  L.concat(CLUSTERS).forEach(l=>{const c=document.createElement('div');c.id='rc-'+l;
+    c.innerHTML='<div class="rl" style="color:'+color(l)+'">'+(l.length>1?l:l.toUpperCase()+' <small>'+l+'</small>')+'</div><div class="st"></div><div class="rb"><button class="rr big"></button><button class="rp" aria-label="Play">▶</button><button class="ru" aria-label="Upload file">📁</button><button class="rd" aria-label="Delete">🗑</button></div>';
     c.querySelector('.rr').onclick=()=>toggleRec(l);
     c.querySelector('.rp').onclick=()=>{stop();if(bufs[l])playSeq([l],0)};
     c.querySelector('.ru').onclick=()=>{upLetter=l;$('#fileIn').value='';$('#fileIn').click()};
     c.querySelector('.rd').onclick=async()=>{if(!confirm('Delete the recording for '+l.toUpperCase()+'?'))return;
       try{await idbDel(l)}catch(e){}delete bufs[l];delete src[l];await loadRepo(l);updateCard(l);msg(l.toUpperCase()+' deleted.')};
-    g.appendChild(c);updateCard(l)})}
+    (l.length>1?$('#cgrid'):g).appendChild(c);updateCard(l)})}
 $('#fileIn').onchange=async e=>{const f=e.target.files[0];if(f&&upLetter){msg('Reading file…');await saveRaw(upLetter,await f.arrayBuffer())}};
 $('#gap').value=gapMs;$('#gapTxt').textContent=gapMs+' ms';
 $('#gap').oninput=e=>{gapMs=+e.target.value;$('#gapTxt').textContent=gapMs+' ms';try{localStorage.setItem('gap',gapMs)}catch(x){}};
@@ -478,8 +485,8 @@ $('#expBtn').onclick=async()=>{
 $('#impBtn').onclick=()=>{$('#zipIn').value='';$('#zipIn').click()};
 $('#zipIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;msg('Importing…');
   try{const files=await readZip(await f.arrayBuffer());let ok=0,skip=0;
-    for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z])\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
-      if(!m)continue;if(z.skip){skip++;continue}
+    for(const z of files){const m=z.name.split('/').pop().toLowerCase().match(/^([a-z]{1,4})\.(wav|mp3|m4a|ogg|webm|aac|mp4)$/);
+      if(!m||!(L.includes(m[1])||CLUSTERS.includes(m[1])))continue;if(z.skip){skip++;continue}
       if(await saveRaw(m[1],z.data.buffer.slice(z.data.byteOffset,z.data.byteOffset+z.data.byteLength),true))ok++}
     msg('Imported '+ok+' sounds ✅'+(skip?' ('+skip+' could not be read in this browser)':''),!ok)}
   catch(err){msg('Could not read that ZIP file.',1)}};
@@ -589,10 +596,11 @@ async function blendLong(word,hl){
   const U=units(word),vi=U.findIndex(u=>'aeiou'.includes(u[0]));
   if(vi<0)return blendTTS(word,hl,false);
   const on=U.slice(0,vi),rime=U.slice(vi),list=[];
-  if(on.length){
-    if(on.length===1&&on[0].length===1&&bufs[on[0]])list.push({rec:on[0],idx:[0]});          // a) your recording, if you have one
-    else list.push({t:ONSET[on.join('')]||on.map(snd).join(' '),idx:on.map((_,i)=>i)})}     // b) respelled text-to-speech
-  list.push({t:rimeFix(rime.join('')),idx:rime.map((_,i)=>vi+i)});
+  if(on.length){const ok=on.join('');
+    if(bufs[ok])list.push({rec:ok,idx:on.map((_,i)=>i)});                                    // a) your recording of this letter / cluster
+    else list.push({t:ONSET[ok]||on.map(snd).join(' '),idx:on.map((_,i)=>i)})}              // b) respelled text-to-speech
+  const rk=rime.join('');
+  list.push(bufs[rk]?{rec:rk,idx:rime.map((_,i)=>vi+i)}:{t:rimeFix(rk),idx:rime.map((_,i)=>vi+i)});
   stop();const me=tok;await sleep(80);
   for(const st of list){
     if(me!==tok)return false;hl&&hl(st.idx);
