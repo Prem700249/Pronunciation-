@@ -135,7 +135,8 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <h2>🎙 Record your own letter sounds</h2>
     <p class="hint">Tap <b>Record</b>, say the sound (like "buh"), tap <b>Stop</b>. Silence is trimmed and volume is made equal automatically. Recorded sounds are used first; the computer voice is used only for letters not recorded.</p>
     <div id="recMsg" style="padding:10px 14px;border-radius:14px;font-weight:700;margin-bottom:10px;background:#eef;min-height:44px">Allow the microphone when your browser asks.</div>
-    <div class="acts" style="align-items:center"><b id="recCount" style="font-size:1.2rem"></b><button id="expBtn">⬇ Export all sounds (ZIP)</button><button id="impBtn">⬆ Import sounds (ZIP)</button></div>
+    <div class="acts" style="align-items:center"><b id="recCount" style="font-size:1.2rem"></b><button id="expBtn">⬇ Export all sounds (ZIP)</button><button id="impBtn">⬆ Import sounds (ZIP)</button><button class="go" id="ghBtn">☁ Save to GitHub</button></div>
+    <div style="margin:-4px 0 10px"><a href="#" id="ghCfg" style="font-size:.95rem">GitHub settings</a></div>
     <div class="acts" style="align-items:center"><label style="font-weight:800">Gap between sounds when blending: <span id="gapTxt"></span><br><input type="range" id="gap" min="0" max="200" step="10" style="width:260px;max-width:80vw"></label><button class="go" id="testBlend">▶ Test blend: s-a-t</button></div>
     <div class="rgrid" id="rgrid"></div>
     <h2 style="margin-top:26px">🎙 Blend sounds (clusters)</h2>
@@ -184,7 +185,7 @@ if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pick
 function say(t,rate){return new Promise(res=>{
   $('#bubble').textContent=t;document.body.classList.add('talk');
   if(!('speechSynthesis' in window)){setTimeout(()=>{document.body.classList.remove('talk');res()},500);return}
-  const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;
+  const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;u.rate=rate||.7;u.pitch=1.2;u.volume=1;
   let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
   u.onstart=()=>console.log('[speech] started:',t);u.onend=f;u.onerror=e=>{console.warn('[speech] error:',e&&e.error,t);f()};setTimeout(f,3500);speechSynthesis.speak(u)})}
 function stop(){tok++;stopAudio();if('speechSynthesis' in window)speechSynthesis.cancel()}
@@ -422,7 +423,7 @@ async function blend(word,hl,chunk){
   if(me!==tok)return false;await sleep(250);if(me!==tok)return false;hl&&hl(-2);await speakWord(word);hl&&hl(-1);return me===tok}
 // ---- load saved sounds ----
 async function loadRepo(l){if(!location.protocol.startsWith('http'))return;
-  for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+l+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
+  for(const nm of(l.length===1?[l,l.toUpperCase()]:[l]))for(const ext of['wav','mp3']){try{const r=await fetch('sounds/'+nm+'.'+ext);if(r.ok){bufs[l]=await decode(await r.arrayBuffer());src[l]='repo';return}}catch(e){}}}
 async function initAudio(){
   try{await Promise.all((await idbAll()).map(async r=>{try{bufs[r.letter]=await decode(r.wav.slice(0));src[r.letter]='rec';updateCard(r.letter)}catch(e){}}))}catch(e){msg('Saving on this device is not available in this browser mode (private mode?). Sounds will not be kept.',1)}
   const todo=L.concat(CLUSTERS,SPECIAL).filter(l=>!bufs[l]);
@@ -660,6 +661,54 @@ Object.keys(RIME_SAY).forEach(k=>{
   $('#tuneR').appendChild(r)});
 $('#resetSnd').addEventListener('click',()=>{Object.assign(RIME_SAY,RIME0);try{localStorage.removeItem('rims')}catch(e){}
   document.querySelectorAll('#tuneR input').forEach((x,i)=>x.value=RIME0[Object.keys(RIME0)[i]])});
+// ================= Save to GitHub (one click) =================
+// Saves every recorded sound as sounds/<name>.wav in your repository (a.wav, b.wav, shr.wav ...), the same names the app loads from.
+function b64(ab){const u=new Uint8Array(ab);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+async function gitSha(ab){
+  if(!(window.crypto&&crypto.subtle))return'';
+  const u=new Uint8Array(ab),h=new TextEncoder().encode('blob '+u.length+'\0'),b=new Uint8Array(h.length+u.length);b.set(h);b.set(u,h.length);
+  return[...new Uint8Array(await crypto.subtle.digest('SHA-1',b))].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function ghConf(force){
+  let c=null;try{c=JSON.parse(localStorage.getItem('gh')||'null')}catch(e){}
+  if(c&&c.token&&!force)return c;
+  const host=location.hostname.split('.')[0],seg=location.pathname.split('/')[1]||'';
+  const guess=(c&&c.repo)||(location.hostname.endsWith('github.io')?host+'/'+(seg&&!seg.includes('.')?seg:host+'.github.io'):'');
+  const repo=prompt('Your GitHub repository (owner/name), for example myname/phonics:',guess);if(!repo)return null;
+  const branch=prompt('Branch name (usually main):',(c&&c.branch)||'main');if(!branch)return null;
+  const token=prompt('Paste your GitHub token. It needs "Contents: Read and write" for this repository only. It is kept on this device.',(c&&c.token)||'');if(!token)return null;
+  c={repo:repo.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\/$/,''),branch:branch.trim(),token:token.trim()};
+  try{localStorage.setItem('gh',JSON.stringify(c))}catch(e){}return c}
+async function ghSave(){
+  const c=ghConf(false);if(!c){msg('Save to GitHub was cancelled.',1);return}
+  const H={Authorization:'Bearer '+c.token,Accept:'application/vnd.github+json'},base='https://api.github.com/repos/'+c.repo+'/contents/';
+  const btn=$('#ghBtn');btn.disabled=true;
+  const bad=s=>{if(s===401){try{const g=JSON.parse(localStorage.getItem('gh'));g.token='';localStorage.setItem('gh',JSON.stringify(g))}catch(e){}return'GitHub did not accept the token. Tap Save to GitHub again and paste a new token.'}
+    if(s===403)return'GitHub says this token is not allowed to write here (or too many requests). Check the token has "Contents: Read and write" for this repository.';
+    if(s===404)return'GitHub could not find the repository or branch, or the token has no access to it. Check "GitHub settings".';
+    return'GitHub error '+s+'. Please try again.'};
+  try{
+    const all=await idbAll();if(!all.length){msg('Nothing recorded yet, so there is nothing to save.',1);return}
+    msg('Checking your GitHub sounds folder…');
+    const ex={},r=await fetch(base+'sounds?ref='+encodeURIComponent(c.branch),{headers:H});
+    if(r.ok)(await r.json()).forEach(f=>{ex[f.name.toLowerCase()]=f});
+    else if(r.status!==404){msg(bad(r.status),1);return}
+    let saved=0,same=0,i=0;
+    for(const rec of all.sort((a,b)=>a.letter<b.letter?-1:1)){
+      i++;msg('Saving to GitHub… '+i+' of '+all.length+' ('+rec.letter+')');
+      const e=ex[rec.letter+'.wav'],name=e?e.name:rec.letter+'.wav',sha=await gitSha(rec.wav);
+      if(e&&sha&&sha===e.sha){same++;continue}
+      const put=async s=>fetch(base+'sounds/'+name,{method:'PUT',headers:Object.assign({'Content-Type':'application/json'},H),
+        body:JSON.stringify({message:'Update sound '+rec.letter,content:b64(rec.wav),branch:c.branch,sha:s||undefined})});
+      let res=await put(e&&e.sha);
+      if(res.status===409||res.status===422){const g=await fetch(base+'sounds/'+name+'?ref='+encodeURIComponent(c.branch),{headers:H});
+        res=await put(g.ok?(await g.json()).sha:undefined)}
+      if(!res.ok){msg(bad(res.status)+' ('+saved+' saved before the problem)',1);return}
+      saved++}
+    msg('Saved to GitHub ✅  '+saved+' uploaded'+(same?', '+same+' already up to date':'')+'. The website can take a minute or two to show the new sounds.')}
+  catch(err){msg('Could not reach GitHub. Check your internet connection and try again.',1)}
+  finally{btn.disabled=false}}
+$('#ghBtn').onclick=ghSave;
+$('#ghCfg').onclick=e=>{e.preventDefault();if(ghConf(true))msg('GitHub settings saved. Tap Save to GitHub when you are ready.')};
 </script>
 </body>
 </html>
