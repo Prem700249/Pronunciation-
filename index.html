@@ -801,7 +801,7 @@ async function joinSentence(alive){
     if(!alive())return false;
     setStat('Now like talking!');chips.forEach(c=>c.classList.add('sn-all'));
     const txt=T.map(t=>t.raw).join(' ');
-    if(lv==='adv'){await snSpeak(txt,SN_MOOD.plain.rate);if(!alive())return false;setStat('Now with feeling!');const mo=SN_MOOD[SN_DATA[lv][cur][2]]||SN_MOOD.plain;await snSpeak(txt,mo.rate,mo.pitch)}
+    if(lv==='adv')await snSpeak(txt,SN_MOOD.plain.rate);
     else await snSpeak(txt,.85);
     chips.forEach(c=>c.classList.remove('sn-all'));
     if(!alive())return false;
