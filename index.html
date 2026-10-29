@@ -78,6 +78,32 @@ nav{flex-wrap:wrap}nav button{min-width:96px;font-size:1.05rem}
 .sw:active{transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
 button:disabled{opacity:.35;cursor:default}
 button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
+/* FEATURE:SENTENCE:START */
+#snSec [hidden]{display:none!important}
+#snBarTxt{font-weight:800;margin-bottom:12px}
+.sn-note{font-weight:800;margin:0 0 10px}
+.sn-note:not(:empty){background:#fff4c9;border:3px solid var(--gold);border-radius:14px;padding:8px 12px}
+.sn-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.sn-card{font:inherit;display:flex;align-items:center;gap:10px;text-align:left;background:#fff;border:4px solid var(--ink);border-radius:18px;padding:12px;font-size:1.25rem;font-weight:800;color:var(--ink);cursor:pointer;box-shadow:0 5px 0 var(--ink);position:relative}
+.sn-card:active:not(:disabled){transform:translateY(3px);box-shadow:0 2px 0 var(--ink)}
+.sn-card:disabled{opacity:.6;cursor:default}
+.sn-card .sn-n{flex:none;width:34px;height:34px;border-radius:50%;background:#7b5cff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
+.sn-card.sn-done::after{content:"⭐";position:absolute;top:-12px;right:-6px;font-size:1.6rem}
+.sn-legend{text-align:center;margin:0 0 6px;font-weight:700}
+.sn-tag{display:inline-block;background:#fff4c9;border:3px solid #e07b00;color:#a14f00;border-radius:10px;padding:0 8px;font-weight:800}
+.sn-stat{text-align:center;font-weight:800;font-size:1.2rem;min-height:30px;margin-bottom:4px}
+.sn-chips{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:10px 0 18px}
+.sn-w{font:inherit;background:#fff;border:4px solid var(--ink);border-radius:20px;padding:12px 14px;font-size:2.2rem;font-weight:800;color:var(--ink);cursor:pointer;box-shadow:0 6px 0 var(--ink);position:relative}
+.sn-w:active{transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.sn-w .sn-u{display:inline-block;transition:transform .15s,color .15s;padding:0 1px}
+.sn-w .sn-u.sn-on{color:#ff5a5f;transform:scale(1.35)}
+.sn-w .sn-u.sn-ch{margin-left:.2em}
+.sn-w .sn-p{font-style:normal}
+.sn-w.sn-sight{background:#fff4c9;border-color:#e07b00;box-shadow:0 6px 0 #e07b00;color:#a14f00}
+.sn-w.sn-all .sn-u{color:#12a37f}
+.sn-w.sn-now{background:#ffe8a3}
+.sn-w.sn-ok::after{content:"✅";position:absolute;top:-12px;right:-8px;font-size:1.3rem}
+/* FEATURE:SENTENCE:END */
 </style>
 </head>
 <body>
@@ -97,6 +123,7 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
+  <!-- FEATURE:SENTENCE:START --><button data-t="snSec">3. Sentence</button><!-- FEATURE:SENTENCE:END -->
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -155,6 +182,25 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <p class="hint">Sound Lab: tap a small purple spelling under any row to hear it and keep it. Pick the one that sounds right.</p>
     <div id="tuneR" class="words"></div>
   </section>
+  <!-- FEATURE:SENTENCE:START -->
+  <section id="snSec">
+    <h2>Read the sentence</h2>
+    <p class="hint">Tap a word: first sound, then the chunk, then the whole word. Sight words are said whole.</p>
+    <div class="levels" id="snLevels"></div>
+    <div id="snNote" class="sn-note"></div>
+    <div class="bar"><i id="snFill"></i></div>
+    <div id="snBarTxt"></div>
+    <div class="acts" style="align-items:center"><button class="go" id="snAuto">▶ Play all</button><label style="font-weight:800;font-size:1.05rem"><input type="checkbox" id="snAutoNext" checked style="width:22px;height:22px;vertical-align:middle"> Go to next sentence automatically</label></div>
+    <div id="snListBox"><div class="sn-list" id="snList"></div></div>
+    <div id="snPlayer" hidden>
+      <div class="acts" style="align-items:center"><button id="snBack">⬅ Sentences</button><b id="snTitle" style="font-size:1.3rem"></b></div>
+      <div class="sn-legend"><span class="sn-tag">sight word</span> = said whole, not broken into sounds.</div>
+      <div class="sn-stat" id="snStat"></div>
+      <div class="sn-chips" id="snChips"></div>
+      <div class="acts" id="snActs" style="justify-content:center" hidden><button id="snAgain">🔁 Hear it again</button><button class="go" id="snStar">⭐ I read it!</button></div>
+    </div>
+  </section>
+  <!-- FEATURE:SENTENCE:END -->
 </main>
 <script>
 // ---- Edit these if a sound seems wrong on your computer's voice ----
@@ -620,6 +666,159 @@ async function ghSave(){
   finally{btn.disabled=false}}
 $('#ghBtn').onclick=ghSave;
 $('#ghCfg').onclick=e=>{e.preventDefault();if(ghConf(true))msg('GitHub settings saved. Tap Save to GitHub when you are ready.')};
+// FEATURE:SENTENCE:START  (Sentence tab. Step 1: Preliminary stage with Play all)
+(function(){try{
+// ===================== EDIT HERE =====================
+// SIGHT WORDS: the repeating words of sentences. They are NEVER broken into sounds, they are said whole.
+// Add or remove words (lower case). Every other word is blended: first sound, then the chunk, then the whole word.
+const SN_SIGHT=[
+  'a','an','the','i','is','am','are','was','were','be','been',
+  'he','she','we','me','my','you','your','they','them','their','then','this','that','these','those','there','here',
+  'his','her','him','it','its',
+  'to','too','two','of','for','from','with','into','in','on','at','up','as','by','or','so','no','go','do','does',
+  'and','said','says','have','has','what','when','where','who','why','how',
+  'one','some','any','many','all','could','would','should','because','again','come','want','put'
+];
+// The 30 sentences: ['sentence text', 'picture emoji for the meaning check']. Write them as normal text.
+const SN_DATA={
+  pre:[['The cat sat.','🐱'],['A pig can run.','🐷'],['My dog is big.','🐶'],['He got a bug.','🐛'],['Sun is hot.','☀️'],['Dad had a van.','🚐'],['Sam hid a pen.','✏️'],['Chip had a nap.','😴'],['Frog can hop.','🐸'],['I can clap.','👏']],
+  int:[['Mud is on my sock.','🧦'],['She got a red coat.','🧥'],['Sam and I got milk.','🥛'],['A big pig sat in mud.','🐷'],['My duck sat on a rock.','🦆'],['He can kick the red ball.','⚽'],['We can jump on the bed.','🛏️'],['Dad will fill the big tub.','🛁'],['Six men ran up the hill.','⛰️'],['The dog ran to the shop.','🐶']],
+  adv:[['A big dog ran up the hill.','🐶'],['Can you jump on the bed?','🛏️'],['Is the milk hot, Dad?','🥛'],['Dad, can you fill the tub?','🛁'],['Stop, the duck is on the rock!','🦆'],['The frog can hop, jump and flip!','🐸'],['Run, run, the pig is in the mud!','🐷'],['Will you tell Dad the ball is flat?','⚽'],['She said we can go to the park.','🌳'],['I got a hat, a bag and a coat.','🎒']]
+};
+// ===================== END EDIT =====================
+const KEYS=['pre','int','adv'],NAMES={pre:'Preliminary',int:'Intermediate',adv:'Advanced'};
+const G=id=>document.getElementById(id),sec=G('snSec');
+if(!sec)return;
+const sight=new Set(SN_SIGHT);
+let lv='pre',cur=-1,T=[],tapped=new Set(),run=0,sauto=0,prog={pre:[],int:[],adv:[]};
+try{const p=JSON.parse(localStorage.getItem('sn_progress')||'null');
+  if(p)KEYS.forEach(k=>{if(Array.isArray(p[k]))prog[k]=p[k].filter(n=>Number.isInteger(n)&&n>=0&&n<SN_DATA[k].length)})}catch(e){}
+const save=()=>{try{localStorage.setItem('sn_progress',JSON.stringify(prog))}catch(e){}};
+const isDone=(k,i)=>prog[k].includes(i);
+const open=()=>sec.classList.contains('on');
+const setStat=t=>{G('snStat').textContent=t};
+const setAutoUI=on=>{const a=G('snAuto');a.textContent=on?'⏹ Stop':'▶ Play all';a.style.background=on?'#ff5a5f':'#3ddc97';a.style.color=on?'#fff':''};
+const haltAuto=()=>{sauto++;setAutoUI(false)};
+function progress(){const n=prog[lv].length,t=SN_DATA[lv].length;
+  G('snFill').style.width=n/t*100+'%';G('snBarTxt').textContent=NAMES[lv]+': '+n+' of '+t+' sentences done'}
+// Own speech helper (same voice as the rest of the app) for reading the whole sentence in one go.
+function snSpeak(text,rate){return new Promise(res=>{
+  if(!('speechSynthesis' in window)){setTimeout(res,600);return}
+  try{speechSynthesis.resume()}catch(e){}
+  const v=(typeof voice!=='undefined')?voice:null,u=new SpeechSynthesisUtterance(text);
+  u.lang=v?v.lang:'en-IN';if(v)u.voice=v;u.rate=rate||.8;u.pitch=1.2;u.volume=1;
+  G('bubble').textContent=text;document.body.classList.add('talk');
+  let d=0;const f=()=>{if(!d){d=1;document.body.classList.remove('talk');res()}};
+  u.onend=f;u.onerror=f;setTimeout(f,Math.max(4000,text.length*350));
+  speechSynthesis.speak(u)})}
+function renderLevels(){
+  const box=G('snLevels');box.innerHTML='';
+  KEYS.forEach(k=>{const b=document.createElement('button'),all=SN_DATA[k].every((_,i)=>isDone(k,i));
+    b.textContent=NAMES[k]+(all?' ✅':'');if(k===lv)b.className='on';
+    b.onclick=()=>{haltAuto();run++;stop();lv=k;showList()};box.appendChild(b)})}
+function showList(){
+  cur=-1;run++;
+  G('snPlayer').hidden=true;G('snListBox').hidden=false;renderLevels();progress();
+  G('snAuto').disabled=lv!=='pre';
+  G('snNote').textContent=lv==='pre'?'':'🔜 This stage comes in the next version. You can preview the sentences.';
+  const box=G('snList');box.innerHTML='';
+  SN_DATA[lv].forEach((s,i)=>{const b=document.createElement('button');
+    b.className='sn-card'+(isDone(lv,i)?' sn-done':'');
+    b.innerHTML='<span class="sn-n">'+(i+1)+'</span><span></span>';b.lastChild.textContent=s[0];
+    if(lv==='pre')b.onclick=()=>{haltAuto();openSentence(i)};else b.disabled=true;
+    box.appendChild(b)})}
+function openSentence(i){
+  run++;stop();cur=i;tapped=new Set();
+  T=SN_DATA[lv][i][0].split(/\s+/).filter(Boolean).map(t=>({raw:t,core:t.replace(/[^A-Za-z']/g,'').toLowerCase()})).filter(t=>t.core);
+  T.forEach(t=>{t.sight=sight.has(t.core)});
+  G('snListBox').hidden=true;G('snPlayer').hidden=false;G('snActs').hidden=true;
+  G('snTitle').textContent='Sentence '+(i+1);setStat('Tap each word, one by one.');
+  const box=G('snChips');box.innerHTML='';
+  T.forEach((t,k)=>{const b=document.createElement('button');b.className='sn-w'+(t.sight?' sn-sight':'');
+    b.setAttribute('aria-label','word '+t.core);
+    const m=t.raw.match(/^([^A-Za-z']*)([A-Za-z']+)([^A-Za-z']*)$/),lead=m?m[1]:'',word=m?m[2]:t.core,tail=m?m[3]:'';
+    let inner;
+    if(t.sight)inner='<span class="sn-u">'+word+'</span>';                       // sight word: one piece, said whole
+    else{const U=units(t.core),vi=U.findIndex(u=>'aeiou'.includes(u[0]));      // start sound(s) | chunk from the first vowel
+      if(/^[A-Z]/.test(word))U[0]=U[0].charAt(0).toUpperCase()+U[0].slice(1);
+      inner=U.map((u,x)=>'<span class="sn-u'+(vi>0&&x===vi?' sn-ch':'')+'">'+u+'</span>').join('')}
+    b.innerHTML=(lead?'<i class="sn-p">'+lead+'</i>':'')+inner+(tail?'<i class="sn-p">'+tail+'</i>':'');
+    b.onclick=()=>tapWord(k);box.appendChild(b)});
+  window.scrollTo(0,0)}
+function clearMarks(){document.querySelectorAll('#snChips .sn-w').forEach(c=>{c.classList.remove('sn-all','sn-now');c.querySelectorAll('.sn-u').forEach(s=>s.classList.remove('sn-on'))})}
+// Says ONE word. Sight word = whole. Any other word = the same long-word technique as the 6+ letters level:
+// first sound(s), then the chunk (from the first vowel), then the whole word. Returns true when it finished.
+async function sayWord(k){
+  const t=T[k],b=G('snChips').children[k];clearMarks();let ok=true;
+  if(t.sight){setStat('Sight word: say it whole.');b.classList.add('sn-all');stop();const m=tok;await speakWord(t.core);ok=(m===tok)}
+  else{setStat('First sound, then the chunk, then the word.');const sp=b.querySelectorAll('.sn-u');
+    ok=await blend(t.core,i=>{sp.forEach((s,x)=>s.classList.toggle('sn-on',Array.isArray(i)&&i.includes(x)));b.classList.toggle('sn-all',i===-2)},true)}
+  clearMarks();return ok!==false}
+async function tapWord(k){
+  haltAuto();const me=++run,alive=()=>me===run&&open();
+  try{
+    const ok=await sayWord(k);
+    if(!ok||!alive())return;
+    const before=tapped.size;tapped.add(k);G('snChips').children[k].classList.add('sn-ok');
+    if(before<T.length&&tapped.size===T.length){await sleep(500);if(alive())await joinSentence(alive)}
+    else setStat('Tap each word, one by one.')
+  }catch(err){console.error('[sentence] word failed',err)}}
+// All words joined: slow with gaps, faster, then once naturally. Returns true when it finished.
+async function joinSentence(alive){
+  try{
+    const chips=[...G('snChips').children];G('snActs').hidden=true;
+    const passes=[{msg:'Now say it slowly…',rate:.6,gap:700},{msg:'Faster…',rate:.75,gap:250}];
+    for(const p of passes){
+      setStat(p.msg);
+      for(let k=0;k<T.length;k++){
+        if(!alive())return false;
+        chips.forEach((c,x)=>c.classList.toggle('sn-now',x===k));
+        await speakWord(T[k].core,p.rate);
+        if(!alive())return false;
+        await sleep(p.gap)}
+      chips.forEach(c=>c.classList.remove('sn-now'));await sleep(500)}
+    if(!alive())return false;
+    setStat('Now like talking!');chips.forEach(c=>c.classList.add('sn-all'));
+    await snSpeak(T.map(t=>t.raw).join(' '),.85);
+    chips.forEach(c=>c.classList.remove('sn-all'));
+    if(!alive())return false;
+    setStat('Now read it aloud, then tap the star!');G('snActs').hidden=false;return true
+  }catch(err){console.error('[sentence] join failed',err);return false}}
+// PLAY ALL (same idea as the Blend tab): plays every word, then the three replays, then the next sentence.
+async function playSentence(alive){
+  for(let k=0;k<T.length;k++){
+    if(!alive())return false;
+    const ok=await sayWord(k);
+    if(!ok||!alive())return false;
+    tapped.add(k);G('snChips').children[k].classList.add('sn-ok');await sleep(450)}
+  return joinSentence(alive)}
+async function autoRun(){
+  const me=++sauto,alive=()=>me===sauto&&open();setAutoUI(true);
+  let i=cur>=0?cur:0;
+  try{
+    while(alive()){
+      openSentence(i);
+      const ok=await playSentence(alive);
+      if(!ok||!alive())break;
+      await sleep(2500);                                   // time for the child to read it aloud
+      if(!alive()||!G('snAutoNext').checked||i>=SN_DATA[lv].length-1)break;
+      i++}
+  }catch(err){console.error('[sentence] play all failed',err)}
+  if(me===sauto)setAutoUI(false)}
+G('snAuto').onclick=()=>{
+  if(G('snAuto').textContent.startsWith('⏹')){haltAuto();run++;stop();document.body.classList.remove('talk')}
+  else autoRun()};
+G('snBack').onclick=()=>{haltAuto();run++;stop();showList()};
+G('snAgain').onclick=()=>{haltAuto();const me=++run;stop();joinSentence(()=>me===run&&open())};
+G('snStar').onclick=()=>{
+  if(cur<0)return;haltAuto();const b=G('snStar');
+  if(!isDone(lv,cur)){prog[lv].push(cur);save();star(2,b);sparks(b)}
+  run++;stop();showList()};
+// when the child leaves this tab, cancel anything still running and return to the list
+new MutationObserver(()=>{if(!open()){haltAuto();run++;if(cur>=0)showList()}}).observe(sec,{attributes:true,attributeFilter:['class']});
+showList();
+}catch(err){console.error('[sentence] could not start:',err)}})();
+// FEATURE:SENTENCE:END
 </script>
 </body>
 </html>
