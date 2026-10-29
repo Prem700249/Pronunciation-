@@ -142,6 +142,28 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
 #scSec .sc-w:active{background:#ffe8a3}
 #scSec .sc-w.sc-now{background:#ffd23f;box-shadow:0 0 0 3px #e07b00}
 /* FEATURE:SCAN:END */
+/* FEATURE:PATH:START */
+#pathSec [hidden]{display:none!important}
+#pathSec .pa-unit{background:#fff;border:4px solid var(--ink);border-radius:18px;padding:12px 14px;margin-bottom:12px}
+#pathSec .pa-unit h3{margin:0 0 4px;font-size:1.3rem}
+#pathSec .pa-status{font-weight:800;margin:6px 0}
+#pathSec .pa-badges{display:flex;flex-wrap:wrap;gap:8px}
+.pa-badge{border:3px solid var(--ink);border-radius:999px;padding:6px 12px;font-weight:800;background:#fff8d6}
+.pa-badge.pa-off{opacity:.35;background:#eee}
+.pa-box{background:#fff;border:4px solid var(--ink);border-radius:18px;padding:14px;margin:12px 0}
+.pa-prompt{font-size:1.2rem;font-weight:800;margin:4px 0 10px}
+.pa-prog{opacity:.75;font-weight:700;margin:0 0 8px}
+.pa-big{font-size:2.6rem;font-weight:900;letter-spacing:.1em;text-align:center;margin:8px 0 12px;font-family:Verdana,Arial,sans-serif}
+.pa-big.pa-sent{font-size:1.5rem;letter-spacing:0;line-height:1.5;font-weight:800}
+.pa-listen{margin-bottom:10px}
+.pa-opts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.pa-opt{font-size:1.4rem;padding:12px 20px;min-width:90px;border:3px solid var(--ink);border-radius:14px;background:#fff;cursor:pointer;font-weight:800}
+.pa-opt.pa-right{background:#b9f5cf}
+.pa-opt.pa-wrong{background:#ffc9c9}
+.pa-fb{font-weight:800;margin:12px 0 4px;text-align:center}
+.pa-next{display:block;margin:12px auto 0}
+#paQuizBtn{font-size:1.2rem;min-width:56px}
+/* FEATURE:PATH:END */
 </style>
 </head>
 <body>
@@ -161,7 +183,7 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
-  <!-- FEATURE:SENTENCE:START --><button data-t="snSec">3. Sentence</button><!-- FEATURE:SENTENCE:END --><!-- FEATURE:SCAN:START --><button data-t="scSec">📷 Scan &amp; Read</button><!-- FEATURE:SCAN:END -->
+  <!-- FEATURE:SENTENCE:START --><button data-t="snSec">3. Sentence</button><!-- FEATURE:SENTENCE:END --><!-- FEATURE:SCAN:START --><button data-t="scSec">📷 Scan &amp; Read</button><!-- FEATURE:SCAN:END --><!-- FEATURE:PATH:START --><button data-t="pathSec">🏁 My Path</button><!-- FEATURE:PATH:END -->
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -266,7 +288,19 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
     </div>
   </section>
   <!-- FEATURE:SCAN:END -->
+<!-- FEATURE:PATH:START -->
+  <section id="pathSec">
+    <h2>🏁 My Path</h2>
+    <p class="hint">Story: the friendly mascot has lost its storybook. Each unit helps you find another page of it. Checks give a suggestion and stars. Nothing is saved yet.</p>
+    <div class="acts"><button id="paPlace">🧭 Placement check (optional)</button></div>
+    <div id="paUnits"></div>
+    <div id="paBody"></div>
+    <h3>My badges</h3>
+    <div id="paBadges" class="pa-badges"></div>
+  </section>
+  <!-- FEATURE:PATH:END -->
 </main>
+
 <script>
 // ---- Edit these if a sound seems wrong on your computer's voice ----
 const DEF={a:'ae',b:'ba',c:'ka',d:'da',e:'ee',f:'fa',g:'ga',h:'ha',i:'ee',j:'ja',k:'ka',l:'la',m:'ma',n:'na',o:'or',p:'pa',q:'qu',r:'ra',s:'sa',t:'ta',u:'uh',v:'va',w:'wa',x:'xa',y:'ya',z:'zee'};
@@ -1085,6 +1119,142 @@ new MutationObserver(()=>{if(scSec.classList.contains('on'))showLevel()}).observ
 showLevel();
 }catch(err){console.error('[scan] could not start:',err)}})();
 // FEATURE:SCAN:END
+// FEATURE:PATH:START  (My Path tab: course units, placement check, unit checks and badges; a quiz on each Scan & Read page. Nothing is saved.)
+(function(){try{
+const G=id=>document.getElementById(id);
+const pathSec=G('pathSec');
+if(!pathSec)return;
+const pick=(arr,n)=>{const a=arr.slice(),out=[];while(a.length&&out.length<n)out.push(a.splice(Math.floor(Math.random()*a.length),1)[0]);return out};
+const shuffle=arr=>pick(arr,arr.length);
+const LETTERS=['a','b','c','d','e','f','g','h','i','m','n','o','p','r','s','t','u'];
+const VOW=['a','e','i','o','u'];
+const MISSING=[['c_t','a'],['d_g','o'],['s_n','u'],['b_d','e'],['p_g','i'],['h_t','a'],['m_p','o'],['f_n','u'],['r_d','e'],['b_s','u']];
+const WORDS=['cat','dog','sun','bed','pig','hat','cup','fox','red','bus'];
+const SENT=[
+ ['The ___ ran to the shop.','dog',['cup','sun']],
+ ['I drink milk from a ___.','cup',['bed','pig']],
+ ['The ___ is hot and bright.','sun',['cat','bus']],
+ ['We sleep in a ___ at night.','bed',['fox','hat']],
+ ['The ___ ran over the hill.','fox',['bus','hat']],
+ ['A big yellow ___ drove by.','bus',['pig','sun']],
+ ['The ___ said oink.','pig',['hat','bed']],
+ ['I put my ___ on my head.','hat',['dog','cup']],
+ ['The ___ chased the ball.','dog',['bed','sun']]];
+const FALLBACK=['house','green','happy','water','light','apple','mouse'];
+const STOP=['that','this','with','from','there','their','they','have','were','what','when','then','them','said','into','over','under','down','very','just'];
+const unitState={1:null,2:null};let pageWins=0;
+
+// ---- questions ----
+function qLetter(){const L=pick(LETTERS,1)[0];return {type:'letter',say:L,prompt:'Listen. Which letter is it?',opts:shuffle([L,...pick(LETTERS.filter(x=>x!==L),2)]),ans:L,topic:'Letters'}}
+function qMissing(){const [w,a]=pick(MISSING,1)[0];return {type:'missing',prompt:'Which letter fills the gap?',word:w,opts:shuffle([a,...pick(VOW.filter(v=>v!==a),2)]),ans:a,topic:'Letters'}}
+function qWord(){const w=pick(WORDS,1)[0];return {type:'word',say:w,prompt:'Listen. Which word is it?',opts:shuffle([w,...pick(WORDS.filter(x=>x!==w),2)]),ans:w,topic:'Words'}}
+function qSent(){const [s,a,d]=pick(SENT,1)[0];return {type:'sent',prompt:'Which word fills the gap?',sentence:s,opts:shuffle([a,...d]),ans:a,topic:'Sentences'}}
+
+// ---- one question on screen, with feedback ----
+function askOne(q,box,label,done){
+  box.innerHTML='';
+  const pg=document.createElement('p');pg.className='pa-prog';pg.textContent=label;box.appendChild(pg);
+  const p=document.createElement('p');p.className='pa-prompt';p.textContent=q.prompt;box.appendChild(p);
+  if(q.word){const d=document.createElement('div');d.className='pa-big';d.textContent=q.word;box.appendChild(d)}
+  if(q.sentence){const d=document.createElement('div');d.className='pa-big pa-sent';d.textContent=q.sentence;box.appendChild(d)}
+  if(q.say){const b=document.createElement('button');b.className='pa-listen';b.textContent='🔊 Listen again';b.onclick=()=>say(q.say,.7);box.appendChild(b);setTimeout(()=>{if(box.contains(b))say(q.say,.7)},300)}
+  const row=document.createElement('div');row.className='pa-opts';
+  q.opts.forEach(o=>{const b=document.createElement('button');b.className='pa-opt';b.textContent=o;
+    b.onclick=()=>{if(row.dataset.done)return;row.dataset.done='1';const ok=o===q.ans;
+      b.classList.add(ok?'pa-right':'pa-wrong');
+      [...row.children].forEach(x=>{if(x.textContent===q.ans)x.classList.add('pa-right')});
+      const fb=document.createElement('p');fb.className='pa-fb';fb.textContent=ok?'Well done! ⭐':'Good try. The answer is "'+q.ans+'".';box.appendChild(fb);
+      done(ok,q)};
+    row.appendChild(b)});
+  box.appendChild(row)}
+function runSet(qs,title,box,finish){
+  let i=0,score=0;const misses=[];
+  const show=()=>{
+    if(i>=qs.length){finish(score,qs.length,misses);return}
+    askOne(qs[i],box,title+' · question '+(i+1)+' of '+qs.length,(ok,q)=>{
+      if(ok)score++;else misses.push(q.topic);
+      const nb=document.createElement('button');nb.className='go pa-next';nb.textContent=i<qs.length-1?'Next ➡':'See result';
+      nb.onclick=()=>{i++;show()};box.appendChild(nb)})};
+  show()}
+function showResult(box,head,text,again){
+  box.innerHTML='';const h=document.createElement('h3');h.textContent=head;box.appendChild(h);
+  const p=document.createElement('p');p.className='pa-fb';p.textContent=text;box.appendChild(p);
+  if(again){const b=document.createElement('button');b.className='go pa-next';b.textContent=again.label;b.onclick=again.go;box.appendChild(b)}}
+
+// ---- placement check: 5 questions, a suggestion only ----
+const paBody=G('paBody');
+function startPlacement(){
+  runSet([qLetter(),qMissing(),qWord(),qSent(),qSent()],'Placement check',paBody,(score,total)=>{
+    const where=score>=4?'Start at the Sentence tab (Intermediate or Advanced).':score>=2?'Start at the Blend tab.':'Start at the Letters tab, group 1.';
+    showResult(paBody,'Placement: '+score+' of '+total,where+' This is only a suggestion. Any tab can still be opened.',{label:'Back to my path',go:()=>{paBody.innerHTML=''}})})}
+
+// ---- unit checks: 10 questions, pass with 8 ----
+function startUnit(n){
+  const qs=n===1?[1,2,3,4,5].map(()=>qLetter()).concat([1,2,3,4,5].map(()=>qMissing()))
+               :[1,2,3,4,5].map(()=>qWord()).concat([1,2,3,4,5].map(()=>qSent()));
+  runSet(shuffle(qs),'Unit '+n+' check',paBody,(score,total,misses)=>{
+    const passed=score>=8;unitState[n]=passed?'passed':'practise';
+    const topics=[...new Set(misses)];
+    const text=passed?'Passed! The next unit is ready.':'Practise these again: '+topics.join(', ')+'. Then try the check again.';
+    const again=passed?{label:'Back to my path',go:()=>{paBody.innerHTML=''}}:{label:'Try the check again',go:()=>startUnit(n)};
+    showResult(paBody,'Unit '+n+': '+score+' of '+total,text,again);renderBadges();renderUnits()})}
+
+// ---- page quiz on the current Scan & Read page ----
+function blankQ(s,pool){
+  const toks=s.split(/\s+/);
+  const cands=toks.map((t,i)=>({i,c:t.replace(/[^A-Za-z]/g,'')})).filter(x=>x.c.length>=4&&!STOP.includes(x.c.toLowerCase()));
+  if(!cands.length)return null;
+  const c=pick(cands,1)[0],ans=c.c;
+  const dis=pick(pool.filter(w=>w.toLowerCase()!==ans.toLowerCase()),2);
+  FALLBACK.forEach(f=>{if(dis.length<2&&f!==ans.toLowerCase()&&!dis.includes(f))dis.push(f)});
+  const blanked=toks.map((t,i)=>i===c.i?t.replace(ans,'___'):t).join(' ');
+  return {type:'sent',prompt:'Which word fills the gap?',sentence:blanked,opts:shuffle([ans,...dis.slice(0,2)]),ans,topic:'Page'}}
+function startPageQuiz(){
+  const box=G('paQuizBox');
+  const sents=[...document.querySelectorAll('#scPage .sc-sent')].map(e=>e.textContent.trim()).filter(s=>s.split(/\s+/).length>=5);
+  const pool=[...new Set(sents.join(' ').split(/\s+/).map(w=>w.replace(/[^A-Za-z]/g,'')).filter(w=>w.length>=3))];
+  const qs=pick(sents,3).map(s=>blankQ(s,pool)).filter(Boolean);
+  if(!qs.length){box.innerHTML='<p class="pa-fb">Open a page with longer sentences first, then tap Quiz.</p>';return}
+  runSet(qs,'Page quiz',box,(score,total)=>{
+    if(score===total)pageWins++;
+    renderBadges();
+    showResult(box,'Page quiz: '+score+' of '+total,score===total?'Excellent reading!':'Good work. Read the page again and try once more.',{label:'Close quiz',go:()=>{box.innerHTML=''}})})}
+const qbox=document.createElement('div');qbox.id='paQuizBox';qbox.className='pa-box';
+G('scPage').parentNode.insertBefore(qbox,G('scPage').nextSibling);
+const qbtn=document.createElement('button');qbtn.id='paQuizBtn';qbtn.textContent='📝 Quiz this page';
+G('scSec').querySelector('.sc-size').appendChild(qbtn);
+qbtn.onclick=()=>{if(G('scPlay')&&G('scPlay').textContent.indexOf('Stop')>=0)G('scPlay').click();startPageQuiz()};
+['scPrev','scNext','scBack','scMake'].forEach(id=>{const e=G(id);if(e)e.addEventListener('click',()=>{qbox.innerHTML=''})});
+
+// ---- course units and badges ----
+const UNITS=[
+ {n:1,title:'Unit 1: Letters and sounds',what:'Letters tab and Blend tab',check:'Check: 10 questions, pass with 8.'},
+ {n:2,title:'Unit 2: Words and sentences',what:'Sentence tab: Preliminary, Intermediate and Advanced',check:'Check: 10 questions, pass with 8.'},
+ {n:3,title:'Unit 3: Reading real pages',what:'📷 Scan & Read: any book page you upload or photograph',check:'Check: tap 📝 Quiz this page after reading a page.'}];
+function renderUnits(){
+  const box=G('paUnits');box.innerHTML='';
+  UNITS.forEach(u=>{
+    const st=u.n===3?(pageWins>0?'passed':null):unitState[u.n];
+    const card=document.createElement('div');card.className='pa-unit';
+    const h=document.createElement('h3');h.textContent=u.title;
+    const p=document.createElement('p');p.textContent=u.what+'. '+u.check;
+    const s=document.createElement('p');s.className='pa-status';
+    s.textContent=st==='passed'?'Passed ✅':st==='practise'?'Practise again':'Not checked yet';
+    const b=document.createElement('button');b.className='go';
+    if(u.n===3){b.textContent='Go to Scan & Read';b.onclick=()=>{const t=document.querySelector('nav button[data-t="scSec"]');if(t)t.click()}}
+    else{b.textContent=st==='practise'?'Try the check again':'Start the check';b.onclick=()=>startUnit(u.n)}
+    card.appendChild(h);card.appendChild(p);card.appendChild(s);card.appendChild(b);box.appendChild(card)})}
+function renderBadges(){
+  const st=parseInt(((G('stars')||{}).textContent||'').replace(/\D/g,''))||0;
+  const list=[['⭐ First star',st>=1],['🌟 10 stars',st>=10],['🏆 25 stars',st>=25],['🎓 Unit 1 passed',unitState[1]==='passed'],['🎓 Unit 2 passed',unitState[2]==='passed'],['📖 Perfect page quiz',pageWins>0]];
+  const box=G('paBadges');box.innerHTML='';
+  list.forEach(([t,on])=>{const b=document.createElement('span');b.className='pa-badge'+(on?'':' pa-off');b.textContent=t;box.appendChild(b)})}
+function renderAll(){renderUnits();renderBadges()}
+G('paPlace').onclick=startPlacement;
+new MutationObserver(()=>{if(pathSec.classList.contains('on')){renderAll()}else{stop();paBody.innerHTML=''}}).observe(pathSec,{attributes:true,attributeFilter:['class']});
+renderAll();
+}catch(err){console.error('[path] could not start:',err)}})();
+// FEATURE:PATH:END
 </script>
 </body>
 </html>
