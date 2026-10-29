@@ -123,6 +123,22 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
 .dt-dot.dt-past{background:#3ddc97}
 .dt-dot.dt-on{background:#ff5a5f;transform:scale(1.3)}
 /* FEATURE:SNDOTS:END */
+/* FEATURE:SCAN:START */
+#scSec [hidden]{display:none!important}
+#scText{width:100%;font:inherit;font-size:1.1rem;padding:10px;border:4px solid var(--ink);border-radius:16px;box-sizing:border-box;margin-bottom:10px;background:#fff;color:var(--ink)}
+#scSec .sc-msg{font-weight:700;padding:10px 14px;border-radius:14px;margin-bottom:10px}
+#scSec .sc-msg:empty{display:none}
+#scSec .sc-row{display:flex;gap:10px;align-items:flex-start;background:#fff;border:4px solid var(--ink);border-radius:18px;padding:12px;margin-bottom:12px}
+#scSec .sc-row.sc-on{background:#fff4c9;border-color:#e07b00}
+#scSec .sc-play{font:inherit;font-size:1.3rem;border:3px solid var(--ink);border-radius:12px;background:#fff;padding:6px 10px;cursor:pointer;flex:none}
+#scSec .sc-s{font-size:1.9rem;font-weight:800;line-height:1.5;margin:0}
+#scSec .sc-row.sc-on .sc-s{color:#a14f00}
+#scSec .sc-w{display:inline-block;cursor:pointer;padding:0 2px;border-radius:8px}
+#scSec .sc-w:active{background:#ffe8a3}
+#scSec .sc-note{font-size:.95rem;opacity:.8;margin:0 0 10px}
+#scSec .sc-q{font-size:1.4rem;margin:8px 0 12px}
+#scSec .sc-lv{display:block;width:100%;font-size:1.15rem;padding:18px 12px;margin-bottom:12px;text-align:center}
+/* FEATURE:SCAN:END */
 </style>
 </head>
 <body>
@@ -142,7 +158,7 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
 <nav>
   <button data-t="s1" class="on">1. Letters</button>
   <button data-t="s2">2. Blend</button>
-  <!-- FEATURE:SENTENCE:START --><button data-t="snSec">3. Sentence</button><!-- FEATURE:SENTENCE:END -->
+  <!-- FEATURE:SENTENCE:START --><button data-t="snSec">3. Sentence</button><!-- FEATURE:SENTENCE:END --><!-- FEATURE:SCAN:START --><button data-t="scSec">📷 Scan &amp; Read</button><!-- FEATURE:SCAN:END -->
   <button data-t="s4">⚙ Tune</button>
   <button data-t="s5">🎙 Record</button>
 </nav>
@@ -220,6 +236,33 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
     </div>
   </section>
   <!-- FEATURE:SENTENCE:END -->
+<!-- FEATURE:SCAN:START -->
+  <section id="scSec">
+    <h2>📷 Scan &amp; Read: read your own pages</h2>
+    <p class="hint">Paste text, or upload a Word (.docx) or text (.txt) file. Text is split into pages of short sentences. Tap a word to hear it, a 🔊 to hear a sentence, or ▶ to read the whole page.</p>
+    <div id="scLevelBox">
+      <h3 class="sc-q">How would you like me to read?</h3>
+      <button class="go sc-lv" id="scLvBeg">🌱 Beginner: chunks, then words, then sentences</button>
+      <button class="go sc-lv" id="scLvAdv">🚀 Advanced: smooth, fluent sentences</button>
+    </div>
+    <div id="scInputBox">
+      <textarea id="scText" rows="7" placeholder="Paste text from your book here…"></textarea>
+      <div class="acts" style="align-items:center"><button class="go" id="scMake">Make pages</button><button id="scFileBtn">📁 Upload Word or text file</button></div>
+      <div class="acts" style="align-items:center"><button id="scCamBtn">📸 Take a photo</button><button id="scImgBtn">🖼 Choose a photo</button></div>
+      <p class="sc-note">Photos are read on this device. The photo reader loads from the internet the first time you use it.</p>
+      <input type="file" id="scCam" accept="image/*" capture="environment" hidden>
+      <input type="file" id="scImg" accept="image/*" hidden>
+      <input type="file" id="scFile" accept=".docx,.txt,text/plain" hidden>
+    </div>
+    <div id="scMsgBox" class="sc-msg"></div>
+    <div id="scReader" hidden>
+      <div class="acts" style="align-items:center"><button id="scBack">⬅ Edit text</button><button id="scLvChange">🎚 Change level</button><b id="scPg"></b></div>
+      <div class="bar"><i id="scFill"></i></div>
+      <div id="scPage"></div>
+      <div class="acts" style="align-items:center;justify-content:center"><button id="scPrev">⬅ Prev</button><button class="go" id="scPlay">▶ Read page</button><button id="scNext">Next ➡</button></div>
+    </div>
+  </section>
+  <!-- FEATURE:SCAN:END -->
 </main>
 <script>
 // ---- Edit these if a sound seems wrong on your computer's voice ----
@@ -874,6 +917,118 @@ new MutationObserver(dtDraw).observe(dtList,{childList:true});
 dtDraw();
 }catch(err){console.error('[sentence dots] could not start:',err)}})();
 // FEATURE:SNDOTS:END
+// FEATURE:SCAN:START  (Scan & Read tab: paste or upload text, split into pages and sentences, read aloud. Nothing is saved.)
+(function(){try{
+const G=id=>document.getElementById(id);
+const scSec=G('scSec');
+if(!scSec)return;
+const PER=4;let pages=[],pi=0,run=0,playing=false;
+const splitSentences=t=>(t.replace(/\s+/g,' ').match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(Boolean);
+const scMsg=(t,bad)=>{const m=G('scMsgBox');m.textContent=t||'';m.style.background=bad?'#ffe3e3':'#e6fff3'};
+const setPlayUI=on=>{playing=on;G('scPlay').textContent=on?'⏹ Stop':'▶ Read page'};
+function halt(){run++;stop();setPlayUI(false);document.querySelectorAll('#scPage .sc-row').forEach(r=>r.classList.remove('sc-on'))}
+// Own speech helper: waits for each sentence to finish, so sentences never overlap.
+function scSpeak(t,rate){return new Promise(res=>{
+  if(!('speechSynthesis' in window)){setTimeout(res,600);return}
+  try{speechSynthesis.resume()}catch(e){}
+  const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;
+  u.rate=rate||.8;u.pitch=1.2;u.volume=1;
+  let d=0;const f=()=>{if(!d){d=1;res()}};
+  u.onend=f;u.onerror=f;setTimeout(f,Math.max(4000,t.length*350));speechSynthesis.speak(u)})}
+function render(){
+  const box=G('scPage');box.innerHTML='';
+  (pages[pi]||[]).forEach(s=>{
+    const row=document.createElement('div');row.className='sc-row';
+    const btn=document.createElement('button');btn.className='sc-play';btn.textContent='🔊';btn.setAttribute('aria-label','read this sentence');
+    btn.onclick=()=>{halt();const me=++run;if(scLevel==='beginner')sayBeginner(s,me);else scSpeak(s,.85)};
+    const p=document.createElement('p');p.className='sc-s';
+    s.split(' ').forEach(w=>{const sp=document.createElement('span');sp.className='sc-w';sp.textContent=w+' ';
+      sp.onclick=()=>{const c=w.replace(/[^A-Za-z']/g,'').toLowerCase();if(!c)return;halt();scSpeak(c,.7)};p.appendChild(sp)});
+    row.appendChild(btn);row.appendChild(p);box.appendChild(row)});
+  G('scPg').textContent='Page '+(pi+1)+' of '+pages.length;
+  G('scFill').style.width=(pages.length?(pi+1)/pages.length*100:0)+'%';
+  G('scPrev').disabled=pi<=0;G('scNext').disabled=pi>=pages.length-1}
+async function readPage(){
+  halt();const me=++run;setPlayUI(true);await sleep(60);
+  const rows=[...document.querySelectorAll('#scPage .sc-row')],sents=pages[pi]||[];
+  for(let k=0;k<rows.length;k++){
+    if(me!==run)break;
+    rows.forEach((r,x)=>r.classList.toggle('sc-on',x===k));
+    if(scLevel==='beginner'){if(!await sayBeginner(sents[k],me))break}
+    else await scSpeak(sents[k],.85);
+    if(me!==run)break;await sleep(300)}
+  if(me===run){rows.forEach(r=>r.classList.remove('sc-on'));setPlayUI(false)}}
+G('scMake').onclick=()=>{
+  halt();const s=splitSentences(G('scText').value);
+  if(!s.length){scMsg('Paste some text or upload a file first.',1);return}
+  pages=[];for(let i=0;i<s.length;i+=PER)pages.push(s.slice(i,i+PER));
+  pi=0;G('scInputBox').hidden=true;G('scReader').hidden=false;render();scMsg('');window.scrollTo(0,0)};
+G('scBack').onclick=()=>{halt();G('scReader').hidden=true;G('scInputBox').hidden=false;scMsg('')};
+G('scPrev').onclick=()=>{halt();pi--;render();window.scrollTo(0,0)};
+G('scNext').onclick=()=>{halt();pi++;render();window.scrollTo(0,0)};
+G('scPlay').onclick=()=>{if(playing)halt();else readPage()};
+G('scFileBtn').onclick=()=>{G('scFile').value='';G('scFile').click()};
+G('scFile').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;scMsg('Reading file…');
+  try{
+    let text='';
+    if(/\.docx$/i.test(f.name)){
+      const files=await readZip(await f.arrayBuffer());
+      const doc=files.find(z=>z.name==='word/document.xml');
+      if(!doc||!doc.data)throw new Error('no document');
+      const xml=new DOMParser().parseFromString(new TextDecoder().decode(doc.data),'text/xml');
+      text=[...xml.getElementsByTagName('w:p')].map(p=>[...p.getElementsByTagName('w:t')].map(t=>t.textContent).join('')).join('\n')}
+    else if(/\.txt$/i.test(f.name)||/^text\//.test(f.type))text=await f.text();
+    else{scMsg('This file type is not supported yet. Use Word (.docx) or text (.txt), or paste the text.',1);return}
+    G('scText').value=text;
+    scMsg(text.trim()?'File loaded. Tap Make pages.':'The file has no text in it.',!text.trim())
+  }catch(err){scMsg('Could not read that file. Try pasting the text instead.',1)}};
+// ---- photos: text in a photo is read on this device (Tesseract.js, loaded once, only when a photo is chosen) ----
+const TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+function loadTess(){return new Promise((res,rej)=>{
+  if(window.Tesseract)return res(window.Tesseract);
+  const s=document.createElement('script');s.src=TESS_URL;s.async=true;
+  s.onload=()=>window.Tesseract?res(window.Tesseract):rej(new Error('offline'));
+  s.onerror=()=>rej(new Error('offline'));document.head.appendChild(s)})}
+async function readPhoto(file){
+  if(!file)return;
+  scMsg('Reading the photo… this can take a minute.');
+  try{
+    const T=await loadTess();
+    const r=await T.recognize(file,'eng',{logger:m=>{if(m&&m.status==='recognizing text')scMsg('Reading the photo… '+Math.round((m.progress||0)*100)+'%')}});
+    const text=((r&&r.data&&r.data.text)||'').trim();
+    G('scText').value=text;
+    scMsg(text?'Text found in the photo. Check it, then tap Make pages.':'No text was found in that photo. Try a clearer, closer photo.',!text)
+  }catch(err){
+    scMsg(err&&err.message==='offline'?'The photo reader could not load. It needs internet the first time. Check your connection and try again.':'Could not read that photo. Try a clearer photo, or paste the text.',1)}}
+G('scCamBtn').onclick=()=>{G('scCam').value='';G('scCam').click()};
+G('scImgBtn').onclick=()=>{G('scImg').value='';G('scImg').click()};
+G('scCam').onchange=e=>readPhoto(e.target.files[0]);
+G('scImg').onchange=e=>readPhoto(e.target.files[0]);
+// ---- level: asked every time the tab opens ----
+let scLevel='beginner';
+function showLevel(){halt();G('scLevelBox').hidden=false;G('scInputBox').hidden=true;G('scReader').hidden=true;scMsg('')}
+function chooseLevel(lv){scLevel=lv;G('scLevelBox').hidden=true;G('scInputBox').hidden=false;G('scReader').hidden=true;scMsg('')}
+G('scLvBeg').onclick=()=>chooseLevel('beginner');
+G('scLvAdv').onclick=()=>chooseLevel('advanced');
+G('scLvChange').onclick=()=>showLevel();
+// Beginner: each word is built from its chunks (the same blending as the Blend tab), then the sentence is read.
+async function sayBeginner(s,me){
+  const ws=s.split(/\s+/).map(w=>w.replace(/[^A-Za-z']/g,'').toLowerCase()).filter(Boolean);
+  for(const w of ws){
+    if(me!==run)return false;
+    const ok=await blend(w,null,true);
+    if(ok===false||me!==run)return false;
+    await sleep(150)}
+  if(me!==run)return false;
+  await scSpeak(s,.75);
+  return me===run}
+new MutationObserver(()=>{if(scSec.classList.contains('on'))showLevel()}).observe(scSec,{attributes:true,attributeFilter:['class']});
+showLevel();
+// stop reading when the child leaves this tab
+new MutationObserver(()=>{if(!scSec.classList.contains('on'))halt()}).observe(scSec,{attributes:true,attributeFilter:['class']});
+}catch(err){console.error('[scan] could not start:',err)}})();
+// FEATURE:SCAN:END
 </script>
 </body>
 </html>
