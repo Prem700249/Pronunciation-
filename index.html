@@ -104,6 +104,25 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
 .sn-w.sn-now{background:#ffe8a3}
 .sn-w.sn-ok::after{content:"✅";position:absolute;top:-12px;right:-8px;font-size:1.3rem}
 /* FEATURE:SENTENCE:END */
+/* FEATURE:SNFOCUS:START */
+.sf-howto{background:#fff4c9;border:3px solid var(--gold);border-radius:14px;padding:10px 14px;font-weight:700;line-height:1.4;margin:0 0 12px}
+body.sf-focus header,body.sf-focus nav{display:none!important}
+body.sf-focus #snSec{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;overflow:auto;background:var(--bg);padding:16px;margin:0;display:flex;flex-direction:column;justify-content:center}
+body.sf-focus #snSec>:not(#snPlayer){display:none!important}
+body.sf-focus #snPlayer{width:100%;padding-top:56px}
+body.sf-focus #snPlayer>.acts:first-child{position:fixed;top:10px;left:10px;z-index:51;margin:0}
+body.sf-focus #snTitle,body.sf-focus #snStat,body.sf-focus .sn-legend{display:none!important}
+body.sf-focus .sn-chips{margin:0 0 22px;gap:18px}
+body.sf-focus .sn-w{font-size:3.4rem;padding:18px 20px}
+body.sf-focus #snActs{position:fixed;bottom:16px;left:0;right:0;z-index:51}
+/* FEATURE:SNFOCUS:END */
+/* FEATURE:SNDOTS:START */
+.dt-dots{display:none}
+body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:51;gap:8px;align-items:center}
+.dt-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);background:#fff;display:inline-block}
+.dt-dot.dt-past{background:#3ddc97}
+.dt-dot.dt-on{background:#ff5a5f;transform:scale(1.3)}
+/* FEATURE:SNDOTS:END */
 </style>
 </head>
 <body>
@@ -193,7 +212,7 @@ button:focus-visible{outline:4px solid #ffb703;outline-offset:2px}
     <div class="acts" style="align-items:center"><button class="go" id="snAuto">▶ Play all</button><label style="font-weight:800;font-size:1.05rem"><input type="checkbox" id="snAutoNext" checked style="width:22px;height:22px;vertical-align:middle"> Go to next sentence automatically</label></div>
     <div id="snListBox"><div class="sn-list" id="snList"></div></div>
     <div id="snPlayer" hidden>
-      <div class="acts" style="align-items:center"><button id="snBack">⬅ Sentences</button><b id="snTitle" style="font-size:1.3rem"></b></div>
+      <div class="acts" style="align-items:center"><button id="snBack" aria-label="Back to sentences">⬅</button><b id="snTitle" style="font-size:1.3rem"></b></div>
       <div class="sn-legend"><span class="sn-tag">sight word</span> = said whole, not broken into sounds.</div>
       <div class="sn-stat" id="snStat"></div>
       <div class="sn-chips" id="snChips"></div>
@@ -719,13 +738,13 @@ function renderLevels(){
 function showList(){
   cur=-1;run++;
   G('snPlayer').hidden=true;G('snListBox').hidden=false;renderLevels();progress();
-  G('snAuto').disabled=lv!=='pre';
-  G('snNote').textContent=lv==='pre'?'':'🔜 This stage comes in the next version. You can preview the sentences.';
+  G('snAuto').disabled=false;
+  G('snNote').textContent='';
   const box=G('snList');box.innerHTML='';
   SN_DATA[lv].forEach((s,i)=>{const b=document.createElement('button');
     b.className='sn-card'+(isDone(lv,i)?' sn-done':'');
     b.innerHTML='<span class="sn-n">'+(i+1)+'</span><span></span>';b.lastChild.textContent=s[0];
-    if(lv==='pre')b.onclick=()=>{haltAuto();openSentence(i)};else b.disabled=true;
+    b.onclick=()=>{haltAuto();openSentence(i)};
     box.appendChild(b)})}
 function openSentence(i){
   run++;stop();cur=i;tapped=new Set();
@@ -767,7 +786,7 @@ async function tapWord(k){
 async function joinSentence(alive){
   try{
     const chips=[...G('snChips').children];G('snActs').hidden=true;
-    const passes=[{msg:'Now say it slowly…',rate:.6,gap:700},{msg:'Faster…',rate:.75,gap:250}];
+    const passes=[{msg:'Now say it slowly…',rate:.6,gap:700},{msg:'Faster…',rate:.8,gap:250}];
     for(const p of passes){
       setStat(p.msg);
       for(let k=0;k<T.length;k++){
@@ -819,6 +838,38 @@ new MutationObserver(()=>{if(!open()){haltAuto();run++;if(cur>=0)showList()}}).o
 showList();
 }catch(err){console.error('[sentence] could not start:',err)}})();
 // FEATURE:SENTENCE:END
+// FEATURE:SNFOCUS:START  (Sentence tab: how-to note on the first page, and a full-screen view with only the sentence while reading)
+(function(){try{
+const sfSec=document.getElementById('snSec'),sfPlayer=document.getElementById('snPlayer'),sfLv=document.getElementById('snLevels');
+if(!sfSec||!sfPlayer||!sfLv)return;
+const sfNote=document.createElement('div');sfNote.id='sf-howto';sfNote.className='sf-howto';
+sfNote.textContent='How to use: tap each word, one by one. Each word is said by its sounds, then as a whole. Sight words are said whole at once. When all words are done, the full sentence is read. Then tap ⭐ I read it!';
+sfLv.parentNode.insertBefore(sfNote,sfLv);
+const sfSync=()=>{const reading=sfSec.classList.contains('on')&&!sfPlayer.hidden;
+  document.body.classList.toggle('sf-focus',reading);
+  sfNote.hidden=reading||!sfSec.classList.contains('on')};
+new MutationObserver(sfSync).observe(sfSec,{attributes:true,attributeFilter:['class']});
+new MutationObserver(sfSync).observe(sfPlayer,{attributes:true,attributeFilter:['hidden']});
+sfSync();
+}catch(err){console.error('[sentence focus] could not start:',err)}})();
+// FEATURE:SNFOCUS:END
+// FEATURE:SNDOTS:START  (Sentence tab: one dot per sentence in the full-screen view, the current one highlighted)
+(function(){try{
+const dtPlayer=document.getElementById('snPlayer'),dtTitle=document.getElementById('snTitle'),dtList=document.getElementById('snList');
+if(!dtPlayer||!dtTitle||!dtList)return;
+const dtBox=document.createElement('div');dtBox.id='dt-dots';dtBox.className='dt-dots';dtBox.setAttribute('aria-hidden','true');
+dtPlayer.appendChild(dtBox);
+const dtDraw=()=>{
+  const total=dtList.children.length,m=/(\d+)/.exec(dtTitle.textContent||''),cur=m?+m[1]-1:-1;
+  dtBox.innerHTML='';
+  if(!total||cur<0)return;
+  for(let i=0;i<total;i++){const d=document.createElement('span');d.className='dt-dot'+(i===cur?' dt-on':i<cur?' dt-past':'');dtBox.appendChild(d)}
+};
+new MutationObserver(dtDraw).observe(dtTitle,{childList:true,characterData:true,subtree:true});
+new MutationObserver(dtDraw).observe(dtList,{childList:true});
+dtDraw();
+}catch(err){console.error('[sentence dots] could not start:',err)}})();
+// FEATURE:SNDOTS:END
 </script>
 </body>
 </html>
