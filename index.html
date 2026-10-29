@@ -128,16 +128,19 @@ body.sf-focus .dt-dots{display:flex;position:fixed;top:18px;right:14px;z-index:5
 #scText{width:100%;font:inherit;font-size:1.1rem;padding:10px;border:4px solid var(--ink);border-radius:16px;box-sizing:border-box;margin-bottom:10px;background:#fff;color:var(--ink)}
 #scSec .sc-msg{font-weight:700;padding:10px 14px;border-radius:14px;margin-bottom:10px}
 #scSec .sc-msg:empty{display:none}
-#scSec .sc-row{display:flex;gap:10px;align-items:flex-start;background:#fff;border:4px solid var(--ink);border-radius:18px;padding:12px;margin-bottom:12px}
-#scSec .sc-row.sc-on{background:#fff4c9;border-color:#e07b00}
-#scSec .sc-play{font:inherit;font-size:1.3rem;border:3px solid var(--ink);border-radius:12px;background:#fff;padding:6px 10px;cursor:pointer;flex:none}
-#scSec .sc-s{font-size:1.9rem;font-weight:800;line-height:1.5;margin:0}
-#scSec .sc-row.sc-on .sc-s{color:#a14f00}
-#scSec .sc-w{display:inline-block;cursor:pointer;padding:0 2px;border-radius:8px}
-#scSec .sc-w:active{background:#ffe8a3}
 #scSec .sc-note{font-size:.95rem;opacity:.8;margin:0 0 10px}
 #scSec .sc-q{font-size:1.4rem;margin:8px 0 12px}
 #scSec .sc-lv{display:block;width:100%;font-size:1.15rem;padding:18px 12px;margin-bottom:12px;text-align:center}
+#scSec .sc-size{justify-content:flex-end;margin-bottom:8px}
+#scSec .sc-size button{font-size:1.2rem;min-width:56px}
+#scSec #scPage{background:#fffdf6;border:4px solid var(--ink);border-radius:18px;padding:18px 16px;font-family:Verdana,Arial,sans-serif;line-height:1.75;color:#1b1b1b;margin-bottom:12px;min-height:200px}
+#scSec .sc-head{font-size:1.5em;font-weight:900;margin:.4em 0 .3em;color:#2a2360}
+#scSec .sc-para{margin:0 0 .9em}
+#scSec .sc-sent{border-radius:8px;padding:2px 0;transition:background .2s}
+#scSec .sc-sent.sc-on{background:#fff1c2}
+#scSec .sc-w{display:inline-block;cursor:pointer;padding:0 2px;border-radius:6px}
+#scSec .sc-w:active{background:#ffe8a3}
+#scSec .sc-w.sc-now{background:#ffd23f;box-shadow:0 0 0 3px #e07b00}
 /* FEATURE:SCAN:END */
 </style>
 </head>
@@ -917,56 +920,125 @@ new MutationObserver(dtDraw).observe(dtList,{childList:true});
 dtDraw();
 }catch(err){console.error('[sentence dots] could not start:',err)}})();
 // FEATURE:SNDOTS:END
-// FEATURE:SCAN:START  (Scan & Read tab: paste or upload text, split into pages and sentences, read aloud. Nothing is saved.)
+// FEATURE:SCAN:START  (Scan & Read tab: paste, upload or photograph text; shown as book-style pages with word-by-word highlight. Nothing is saved.)
 (function(){try{
 const G=id=>document.getElementById(id);
 const scSec=G('scSec');
 if(!scSec)return;
-const PER=4;let pages=[],pi=0,run=0,playing=false;
-const splitSentences=t=>(t.replace(/\s+/g,' ').match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(Boolean);
+const PAGE_CHARS=420;   // about 8-10 lines on a phone
+let pages=[],pi=0,run=0,playing=false,scLevel='beginner',sz=1.7,cur=[];
 const scMsg=(t,bad)=>{const m=G('scMsgBox');m.textContent=t||'';m.style.background=bad?'#ffe3e3':'#e6fff3'};
 const setPlayUI=on=>{playing=on;G('scPlay').textContent=on?'⏹ Stop':'▶ Read page'};
-function halt(){run++;stop();setPlayUI(false);document.querySelectorAll('#scPage .sc-row').forEach(r=>r.classList.remove('sc-on'))}
-// Own speech helper: waits for each sentence to finish, so sentences never overlap.
-function scSpeak(t,rate){return new Promise(res=>{
+function clearMarks(){document.querySelectorAll('#scPage .sc-now').forEach(w=>w.classList.remove('sc-now'));document.querySelectorAll('#scPage .sc-on').forEach(s=>s.classList.remove('sc-on'))}
+function halt(){run++;stop();setPlayUI(false);clearMarks()}
+function markWord(rec,i){document.querySelectorAll('#scPage .sc-now').forEach(w=>w.classList.remove('sc-now'));if(rec&&rec.words[i])rec.words[i].classList.add('sc-now')}
+function markSent(rec){document.querySelectorAll('#scPage .sc-on').forEach(s=>s.classList.remove('sc-on'));rec.el.classList.add('sc-on');try{rec.el.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}}
+
+// ---- text -> headings and paragraphs -> sentences -> pages ----
+const sentencesOf=t=>(t.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)||[]).map(s=>s.trim()).filter(Boolean);
+function buildUnits(raw){
+  const units=[];let buf=[];
+  const flush=()=>{if(!buf.length)return;const sents=sentencesOf(buf.join(' ').replace(/\s+/g,' '));buf=[];let g=[],n=0;
+    sents.forEach(s=>{if(g.length&&n+s.length>PAGE_CHARS){units.push({head:false,sents:g});g=[];n=0}g.push(s);n+=s.length});
+    if(g.length)units.push({head:false,sents:g})};
+  raw.replace(/\r/g,'').replace(/-\n(?=[a-z])/g,'').split('\n').forEach(line=>{
+    const l=line.trim();
+    if(!l){flush();return}
+    if(!buf.length&&l.length<=60&&!/[.!?:;,"')\]]$/.test(l)){units.push({head:true,sents:[l]});return}
+    buf.push(l)});
+  flush();return units}
+function packPages(units){const out=[];let c=[],n=0;
+  units.forEach(u=>{const len=u.sents.join(' ').length;if(c.length&&n+len>PAGE_CHARS){out.push(c);c=[];n=0}c.push(u);n+=len});
+  if(c.length)out.push(c);return out}
+function renderPage(){
+  const box=G('scPage');box.innerHTML='';box.style.fontSize=sz+'rem';cur=[];
+  (pages[pi]||[]).forEach(u=>{
+    const el=document.createElement(u.head?'h3':'p');el.className=u.head?'sc-head':'sc-para';
+    u.sents.forEach((s,i)=>{
+      const sp=document.createElement('span');sp.className='sc-sent';
+      const rec={text:s,words:[],el:sp};
+      s.split(/\s+/).forEach((w,j)=>{
+        if(j)sp.appendChild(document.createTextNode(' '));
+        const ws=document.createElement('span');ws.className='sc-w';ws.textContent=w;
+        ws.onclick=ev=>{ev.stopPropagation();const c=w.replace(/[^A-Za-z']/g,'').toLowerCase();if(!c)return;halt();scSpeak(c,.7)};
+        sp.appendChild(ws);rec.words.push(ws)});
+      sp.onclick=()=>{halt();const me=++run;(scLevel==='beginner'?sayBeginner:sayAdvanced)(rec,me)};
+      cur.push(rec);el.appendChild(sp);
+      if(i<u.sents.length-1)el.appendChild(document.createTextNode(' '))});
+    box.appendChild(el)});
+  G('scPg').textContent='Page '+(pi+1)+' of '+pages.length;
+  G('scFill').style.width=(pages.length?(pi+1)/pages.length*100:0)+'%';
+  G('scPrev').disabled=pi<=0;G('scNext').disabled=pi>=pages.length-1;
+  setPlayUI(false)}
+
+// ---- speech with word-by-word timing (uses the device's word events; falls back to an estimate) ----
+function scSpeak(t,rate,onWord){return new Promise(res=>{
   if(!('speechSynthesis' in window)){setTimeout(res,600);return}
   try{speechSynthesis.resume()}catch(e){}
   const u=new SpeechSynthesisUtterance(t);u.lang=voice?voice.lang:'en-IN';if(voice)u.voice=voice;
   u.rate=rate||.8;u.pitch=1.2;u.volume=1;
-  let d=0;const f=()=>{if(!d){d=1;res()}};
-  u.onend=f;u.onerror=f;setTimeout(f,Math.max(4000,t.length*350));speechSynthesis.speak(u)})}
-function render(){
-  const box=G('scPage');box.innerHTML='';
-  (pages[pi]||[]).forEach(s=>{
-    const row=document.createElement('div');row.className='sc-row';
-    const btn=document.createElement('button');btn.className='sc-play';btn.textContent='🔊';btn.setAttribute('aria-label','read this sentence');
-    btn.onclick=()=>{halt();const me=++run;if(scLevel==='beginner')sayBeginner(s,me);else scSpeak(s,.85)};
-    const p=document.createElement('p');p.className='sc-s';
-    s.split(' ').forEach(w=>{const sp=document.createElement('span');sp.className='sc-w';sp.textContent=w+' ';
-      sp.onclick=()=>{const c=w.replace(/[^A-Za-z']/g,'').toLowerCase();if(!c)return;halt();scSpeak(c,.7)};p.appendChild(sp)});
-    row.appendChild(btn);row.appendChild(p);box.appendChild(row)});
-  G('scPg').textContent='Page '+(pi+1)+' of '+pages.length;
-  G('scFill').style.width=(pages.length?(pi+1)/pages.length*100:0)+'%';
-  G('scPrev').disabled=pi<=0;G('scNext').disabled=pi>=pages.length-1}
+  const starts=[];const re=/\S+/g;let m;while((m=re.exec(t)))starts.push(m.index);
+  const mark=i=>{if(onWord&&i>=0&&i<starts.length)onWord(i)};
+  let done=0,heard=false,timer=null,fb=0;
+  const f=()=>{if(!done){done=1;clearInterval(timer);res()}};
+  u.onboundary=ev=>{if(ev.name&&ev.name!=='word')return;heard=true;let idx=0;starts.forEach((s,x)=>{if(s<=ev.charIndex)idx=x});mark(idx)};
+  timer=setInterval(()=>{if(heard){clearInterval(timer);return}mark(fb);fb++;if(fb>=starts.length)clearInterval(timer)},Math.max(250,420/(u.rate||1)));
+  u.onend=f;u.onerror=f;setTimeout(f,Math.max(4000,t.length*350));
+  speechSynthesis.speak(u)})}
+
+// ---- reading: Beginner = chunks of each word, then the sentence; Advanced = the sentence, smoothly ----
+async function sayBeginner(rec,me){
+  markSent(rec);
+  const ws=rec.text.split(/\s+/);
+  for(let j=0;j<rec.words.length;j++){
+    if(me!==run)return false;
+    markWord(rec,j);
+    const w=ws[j].replace(/[^A-Za-z']/g,'').toLowerCase();
+    if(w){const ok=await blend(w,null,true);if(ok===false||me!==run)return false}
+    await sleep(120)}
+  if(me!==run)return false;
+  markWord(rec,-1);
+  await scSpeak(rec.text,.75,i=>{if(me===run)markWord(rec,i)});
+  markWord(rec,-1);
+  return me===run}
+async function sayAdvanced(rec,me){
+  markSent(rec);
+  await scSpeak(rec.text,.85,i=>{if(me===run)markWord(rec,i)});
+  markWord(rec,-1);
+  return me===run}
 async function readPage(){
   halt();const me=++run;setPlayUI(true);await sleep(60);
-  const rows=[...document.querySelectorAll('#scPage .sc-row')],sents=pages[pi]||[];
-  for(let k=0;k<rows.length;k++){
+  for(const rec of cur){
     if(me!==run)break;
-    rows.forEach((r,x)=>r.classList.toggle('sc-on',x===k));
-    if(scLevel==='beginner'){if(!await sayBeginner(sents[k],me))break}
-    else await scSpeak(sents[k],.85);
-    if(me!==run)break;await sleep(300)}
-  if(me===run){rows.forEach(r=>r.classList.remove('sc-on'));setPlayUI(false)}}
-G('scMake').onclick=()=>{
-  halt();const s=splitSentences(G('scText').value);
-  if(!s.length){scMsg('Paste some text or upload a file first.',1);return}
-  pages=[];for(let i=0;i<s.length;i+=PER)pages.push(s.slice(i,i+PER));
-  pi=0;G('scInputBox').hidden=true;G('scReader').hidden=false;render();scMsg('');window.scrollTo(0,0)};
+    const ok=scLevel==='beginner'?await sayBeginner(rec,me):await sayAdvanced(rec,me);
+    if(!ok||me!==run)break;
+    await sleep(250)}
+  if(me===run){clearMarks();setPlayUI(false)}}
+
+// ---- level: asked every time the tab opens ----
+function showLevel(){halt();G('scLevelBox').hidden=false;G('scInputBox').hidden=true;G('scReader').hidden=true;scMsg('')}
+function chooseLevel(lv){scLevel=lv;G('scLevelBox').hidden=true;G('scInputBox').hidden=false;G('scReader').hidden=true;scMsg('')}
+G('scLvBeg').onclick=()=>chooseLevel('beginner');
+G('scLvAdv').onclick=()=>chooseLevel('advanced');
+G('scLvChange').onclick=()=>showLevel();
+
+// ---- text size buttons above the page ----
+const sizeRow=document.createElement('div');sizeRow.className='acts sc-size';
+sizeRow.innerHTML='<button id="scSmaller">A−</button><button id="scBigger">A+</button>';
+G('scPage').parentNode.insertBefore(sizeRow,G('scPage'));
+G('scSmaller').onclick=()=>{sz=Math.max(1.1,+(sz-.2).toFixed(1));G('scPage').style.fontSize=sz+'rem'};
+G('scBigger').onclick=()=>{sz=Math.min(3,+(sz+.2).toFixed(1));G('scPage').style.fontSize=sz+'rem'};
+
+// ---- buttons: make pages, move between pages, read, edit text ----
+G('scMake').onclick=()=>{halt();const units=buildUnits(G('scText').value);
+  if(!units.length){scMsg('Paste some text or upload a file first.',1);return}
+  pages=packPages(units);pi=0;G('scInputBox').hidden=true;G('scReader').hidden=false;renderPage();scMsg('');window.scrollTo(0,0)};
 G('scBack').onclick=()=>{halt();G('scReader').hidden=true;G('scInputBox').hidden=false;scMsg('')};
-G('scPrev').onclick=()=>{halt();pi--;render();window.scrollTo(0,0)};
-G('scNext').onclick=()=>{halt();pi++;render();window.scrollTo(0,0)};
+G('scPrev').onclick=()=>{halt();pi--;renderPage();window.scrollTo(0,0)};
+G('scNext').onclick=()=>{halt();pi++;renderPage();window.scrollTo(0,0)};
 G('scPlay').onclick=()=>{if(playing)halt();else readPage()};
+
+// ---- files: Word (.docx) and text (.txt) ----
 G('scFileBtn').onclick=()=>{G('scFile').value='';G('scFile').click()};
 G('scFile').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;scMsg('Reading file…');
@@ -977,12 +1049,13 @@ G('scFile').onchange=async e=>{
       const doc=files.find(z=>z.name==='word/document.xml');
       if(!doc||!doc.data)throw new Error('no document');
       const xml=new DOMParser().parseFromString(new TextDecoder().decode(doc.data),'text/xml');
-      text=[...xml.getElementsByTagName('w:p')].map(p=>[...p.getElementsByTagName('w:t')].map(t=>t.textContent).join('')).join('\n')}
+      text=[...xml.getElementsByTagName('w:p')].map(p=>[...p.getElementsByTagName('w:t')].map(t=>t.textContent).join('')).join('\n\n')}
     else if(/\.txt$/i.test(f.name)||/^text\//.test(f.type))text=await f.text();
     else{scMsg('This file type is not supported yet. Use Word (.docx) or text (.txt), or paste the text.',1);return}
     G('scText').value=text;
     scMsg(text.trim()?'File loaded. Tap Make pages.':'The file has no text in it.',!text.trim())
   }catch(err){scMsg('Could not read that file. Try pasting the text instead.',1)}};
+
 // ---- photos: text in a photo is read on this device (Tesseract.js, loaded once, only when a photo is chosen) ----
 const TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 function loadTess(){return new Promise((res,rej)=>{
@@ -1005,28 +1078,11 @@ G('scCamBtn').onclick=()=>{G('scCam').value='';G('scCam').click()};
 G('scImgBtn').onclick=()=>{G('scImg').value='';G('scImg').click()};
 G('scCam').onchange=e=>readPhoto(e.target.files[0]);
 G('scImg').onchange=e=>readPhoto(e.target.files[0]);
-// ---- level: asked every time the tab opens ----
-let scLevel='beginner';
-function showLevel(){halt();G('scLevelBox').hidden=false;G('scInputBox').hidden=true;G('scReader').hidden=true;scMsg('')}
-function chooseLevel(lv){scLevel=lv;G('scLevelBox').hidden=true;G('scInputBox').hidden=false;G('scReader').hidden=true;scMsg('')}
-G('scLvBeg').onclick=()=>chooseLevel('beginner');
-G('scLvAdv').onclick=()=>chooseLevel('advanced');
-G('scLvChange').onclick=()=>showLevel();
-// Beginner: each word is built from its chunks (the same blending as the Blend tab), then the sentence is read.
-async function sayBeginner(s,me){
-  const ws=s.split(/\s+/).map(w=>w.replace(/[^A-Za-z']/g,'').toLowerCase()).filter(Boolean);
-  for(const w of ws){
-    if(me!==run)return false;
-    const ok=await blend(w,null,true);
-    if(ok===false||me!==run)return false;
-    await sleep(150)}
-  if(me!==run)return false;
-  await scSpeak(s,.75);
-  return me===run}
+
+// ---- tab open / leave ----
+new MutationObserver(()=>{if(!scSec.classList.contains('on'))halt()}).observe(scSec,{attributes:true,attributeFilter:['class']});
 new MutationObserver(()=>{if(scSec.classList.contains('on'))showLevel()}).observe(scSec,{attributes:true,attributeFilter:['class']});
 showLevel();
-// stop reading when the child leaves this tab
-new MutationObserver(()=>{if(!scSec.classList.contains('on'))halt()}).observe(scSec,{attributes:true,attributeFilter:['class']});
 }catch(err){console.error('[scan] could not start:',err)}})();
 // FEATURE:SCAN:END
 </script>
